@@ -1,0 +1,138 @@
+rules_version = '2';
+
+// ===============================================================
+// AutoSaldo - Firestore Security Rules
+// ===============================================================
+//
+// Modelos de dados e coleções:
+// 1. workspaces/{workspaceId}
+//    - name: string
+// 2. workspaces/{workspaceId}/members/{uid}
+//    - uid: string
+//    - role: string (ex: 'owner', 'operator')
+//    - email: string (opcional)
+//    - createdAt: timestamp
+// 3. workspaces/{workspaceId}/vehicles/{vehicleId}
+//    - brand: string (>= 1 caractere)
+//    - model: string (>= 1 caractere)
+//    - plate: string (7 caracteres maiúsculos)
+//    - purchaseDate: string (AAAA-MM-DD)
+//    - purchasePriceCents: int (> 0)
+//    - version, notes, renavam (11 dígitos), licensingYear, manufactureYear, modelYear, crvNumber: opcionais
+//    - docStatus: string ('pending_check', 'up_to_date', 'with_issue')
+//    - docNotes: string (opcional)
+//    - activeSale: map ou null
+//    - cancelledSales: list (opcional)
+//    - createdByUid, updatedByUid: string
+// 4. workspaces/{workspaceId}/expenses/{expenseId}
+//    - vehicleId: string (deve apontar para um veículo existente no workspace)
+//    - amountCents: int (> 0)
+//    - date: string (AAAA-MM-DD)
+//    - category: string ('workshop', 'parts', 'documentation', 'transport', 'advertising', 'commission', 'other')
+//    - description: string (opcional)
+//    - status: string ('valid', 'reverted')
+//    - createdByUid, updatedByUid: string
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Negação padrão para qualquer caminho não explicitado
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isMember(workspaceId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+    }
+
+    function isValidDate(dateStr) {
+      return dateStr is string && dateStr.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    function isValidPlate(plateStr) {
+      return plateStr is string && plateStr.matches('^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$');
+    }
+
+    function isValidActiveSale(sale) {
+      return sale == null || (
+        sale is map &&
+        sale.id is string &&
+        isValidDate(sale.saleDate) &&
+        sale.salePriceCents is int && sale.salePriceCents > 0 &&
+        sale.payments is list
+      );
+    }
+
+    function isValidVehicle(data) {
+      return data.brand is string && data.brand.size() > 0 &&
+        data.model is string && data.model.size() > 0 &&
+        isValidPlate(data.plate) &&
+        isValidDate(data.purchaseDate) &&
+        data.purchasePriceCents is int && data.purchasePriceCents > 0 &&
+        (data.announcedPriceCents == null || (data.announcedPriceCents is int && data.announcedPriceCents >= 0)) &&
+        (!('renavam' in data) || data.renavam == null || (data.renavam is string && (data.renavam.size() == 0 || data.renavam.matches('^[0-9]{11}$')))) &&
+        (!('docStatus' in data) || data.docStatus in ['pending_check', 'up_to_date', 'with_issue']) &&
+        isValidActiveSale(data.activeSale) &&
+        data.createdByUid is string &&
+        data.updatedByUid is string;
+    }
+
+    function isValidExpense(data, workspaceId) {
+      return data.vehicleId is string &&
+        exists(/databases/$(database)/documents/workspaces/$(workspaceId)/vehicles/$(data.vehicleId)) &&
+        data.amountCents is int && data.amountCents > 0 &&
+        isValidDate(data.date) &&
+        data.category in ['workshop', 'parts', 'documentation', 'transport', 'advertising', 'commission', 'other'] &&
+        data.status in ['valid', 'reverted'] &&
+        data.createdByUid is string &&
+        data.updatedByUid is string;
+    }
+
+    // Regras para workspaces
+    match /workspaces/{workspaceId} {
+      allow read: if isMember(workspaceId);
+      allow write: if false;
+
+      // Associação de membros: administrada fora do app, cliente não pode alterar
+      match /members/{memberUid} {
+        allow read: if isAuthenticated() && (request.auth.uid == memberUid || isMember(workspaceId));
+        allow write: if false;
+      }
+
+      // Veículos
+      match /vehicles/{vehicleId} {
+        allow read: if isMember(workspaceId);
+        allow create: if isMember(workspaceId) &&
+          isValidVehicle(request.resource.data) &&
+          request.resource.data.createdByUid == request.auth.uid &&
+          request.resource.data.updatedByUid == request.auth.uid;
+        allow update: if isMember(workspaceId) &&
+          isValidVehicle(request.resource.data) &&
+          request.resource.data.createdByUid == resource.data.createdByUid &&
+          request.resource.data.updatedByUid == request.auth.uid;
+        allow delete: if false;
+      }
+
+      // Despesas
+      match /expenses/{expenseId} {
+        allow read: if isMember(workspaceId);
+        allow create: if isMember(workspaceId) &&
+          isValidExpense(request.resource.data, workspaceId) &&
+          request.resource.data.createdByUid == request.auth.uid &&
+          request.resource.data.updatedByUid == request.auth.uid;
+        allow update: if isMember(workspaceId) &&
+          isValidExpense(request.resource.data, workspaceId) &&
+          request.resource.data.createdByUid == resource.data.createdByUid &&
+          request.resource.data.updatedByUid == request.auth.uid;
+        allow delete: if false;
+      }
+    }
+  }
+}
+
