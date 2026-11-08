@@ -23,3 +23,4 @@ class MonthlySummary {
     required this.stockCount,
   });
 }
+

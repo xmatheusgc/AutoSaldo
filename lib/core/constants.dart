@@ -46,3 +46,4 @@ class AppConstants {
     paymentStatusOpen: 'Em aberto',
   };
 }
+

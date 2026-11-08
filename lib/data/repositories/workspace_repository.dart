@@ -51,3 +51,4 @@ class WorkspaceRepository {
     return 'AutoSaldo';
   }
 }
+
