@@ -75,10 +75,10 @@ service cloud.firestore {
         isValidPlate(data.plate) &&
         isValidDate(data.purchaseDate) &&
         data.purchasePriceCents is int && data.purchasePriceCents > 0 &&
-        (data.announcedPriceCents == null || (data.announcedPriceCents is int && data.announcedPriceCents >= 0)) &&
+        (!('announcedPriceCents' in data) || data.announcedPriceCents == null || (data.announcedPriceCents is int && data.announcedPriceCents >= 0)) &&
         (!('renavam' in data) || data.renavam == null || (data.renavam is string && (data.renavam.size() == 0 || data.renavam.matches('^[0-9]{11}$')))) &&
         (!('docStatus' in data) || data.docStatus in ['pending_check', 'up_to_date', 'with_issue']) &&
-        isValidActiveSale(data.activeSale) &&
+        (!('activeSale' in data) || isValidActiveSale(data.activeSale)) &&
         data.createdByUid is string &&
         data.updatedByUid is string;
     }
