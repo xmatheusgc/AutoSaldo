@@ -81,7 +81,7 @@ class _HomeShellState extends State<HomeShell> {
                 ),
                 const SizedBox(height: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(20),
@@ -95,10 +95,22 @@ class _HomeShellState extends State<HomeShell> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 6),
-                const Text(
-                  'AutoSaldo Web App • v1.2.1',
-                  style: TextStyle(fontSize: 11, color: AppTheme.textLight),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                  ),
+                  child: const Text(
+                    'AutoSaldo App • Versão 1.3.0',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF2563EB),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton.icon(
@@ -185,82 +197,25 @@ class _HomeShellState extends State<HomeShell> {
                       ),
                     ],
                   ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Olá, $displayName',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF0F172A),
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      Row(
-                        children: const [
-                          Text(
-                            'AutoSaldo',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF2563EB),
-                            ),
-                          ),
-                          Text(
-                            ' • Garagem',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                  const SizedBox(width: 12),
+                  Text(
+                    'Olá, $displayName',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A),
+                      letterSpacing: -0.4,
+                    ),
                   ),
                 ],
               ),
             ),
 
-            // Lado direito: badge de versão e menu
-            Row(
-              children: [
-                InkWell(
-                  onTap: _showUserBottomSheet,
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFCBD5E1)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.check_circle, size: 13, color: Color(0xFF10B981)),
-                        SizedBox(width: 5),
-                        Text(
-                          'v1.3 App',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF334155),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                IconButton(
-                  icon: const Icon(Icons.more_horiz_rounded, size: 24, color: Color(0xFF334155)),
-                  tooltip: 'Minha Conta',
-                  onPressed: _showUserBottomSheet,
-                ),
-              ],
+            // Lado direito: menu de 3 pontos
+            IconButton(
+              icon: const Icon(Icons.more_horiz_rounded, size: 26, color: Color(0xFF334155)),
+              tooltip: 'Minha Conta',
+              onPressed: _showUserBottomSheet,
             ),
           ],
         ),
