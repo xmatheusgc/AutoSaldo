@@ -67,7 +67,12 @@ class VehicleRepository {
   }
 
   /// Salva ou atualiza a ficha do veículo
-  Future<String> saveVehicle(String workspaceId, Vehicle vehicle, String userUid) async {
+  Future<String> saveVehicle(
+    String workspaceId,
+    Vehicle vehicle,
+    String userUid, {
+    String? userEmail,
+  }) async {
     final col = _vehiclesCol(workspaceId);
     final isNew = vehicle.id.isEmpty;
     final docRef = isNew ? col.doc() : col.doc(vehicle.id);
@@ -76,13 +81,20 @@ class VehicleRepository {
     final data = vehicle.toMap();
     data['updatedAt'] = now.toIso8601String();
     data['updatedByUid'] = userUid;
+    if (userEmail != null) {
+      data['updatedByEmail'] = userEmail;
+    }
 
     if (isNew) {
       data['createdAt'] = now.toIso8601String();
       data['createdByUid'] = userUid;
+      if (userEmail != null) {
+        data['createdByEmail'] = userEmail;
+      }
       await docRef.set(data);
     } else {
       data['createdByUid'] = vehicle.createdByUid;
+      data['createdByEmail'] = vehicle.createdByEmail;
       await docRef.set(data, SetOptions(merge: true));
     }
 
@@ -95,6 +107,7 @@ class VehicleRepository {
     required String vehicleId,
     required ActiveSale sale,
     required String userUid,
+    String? userEmail,
   }) async {
     final docRef = _vehiclesCol(workspaceId).doc(vehicleId);
 
@@ -119,6 +132,10 @@ class VehicleRepository {
       saleMap['updatedAt'] = now.toIso8601String();
       saleMap['createdByUid'] = userUid;
       saleMap['updatedByUid'] = userUid;
+      if (userEmail != null) {
+        saleMap['createdByEmail'] = userEmail;
+        saleMap['updatedByEmail'] = userEmail;
+      }
 
       transaction.update(docRef, {
         'activeSale': saleMap,

@@ -12,6 +12,7 @@ class Expense {
   final DateTime updatedAt;
   final String createdByUid;
   final String updatedByUid;
+  final String? createdByEmail;
   final DateTime? revertedAt;
   final String? revertedByUid;
 
@@ -27,6 +28,7 @@ class Expense {
     required this.updatedAt,
     required this.createdByUid,
     required this.updatedByUid,
+    this.createdByEmail,
     this.revertedAt,
     this.revertedByUid,
   });
@@ -49,6 +51,7 @@ class Expense {
       'updatedAt': updatedAt.toIso8601String(),
       'createdByUid': createdByUid,
       'updatedByUid': updatedByUid,
+      'createdByEmail': createdByEmail,
       'revertedAt': revertedAt?.toIso8601String(),
       'revertedByUid': revertedByUid,
     };
@@ -71,6 +74,7 @@ class Expense {
           : DateTime.now(),
       createdByUid: map['createdByUid'] as String? ?? '',
       updatedByUid: map['updatedByUid'] as String? ?? '',
+      createdByEmail: map['createdByEmail'] as String?,
       revertedAt: map['revertedAt'] != null
           ? DateTime.tryParse(map['revertedAt'].toString())
           : null,
@@ -90,6 +94,7 @@ class Expense {
     DateTime? updatedAt,
     String? createdByUid,
     String? updatedByUid,
+    String? createdByEmail,
     DateTime? revertedAt,
     String? revertedByUid,
   }) {
@@ -105,6 +110,7 @@ class Expense {
       updatedAt: updatedAt ?? this.updatedAt,
       createdByUid: createdByUid ?? this.createdByUid,
       updatedByUid: updatedByUid ?? this.updatedByUid,
+      createdByEmail: createdByEmail ?? this.createdByEmail,
       revertedAt: revertedAt ?? this.revertedAt,
       revertedByUid: revertedByUid ?? this.revertedByUid,
     );

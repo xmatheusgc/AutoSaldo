@@ -10,6 +10,8 @@ class ActiveSale {
   final DateTime updatedAt;
   final String createdByUid;
   final String updatedByUid;
+  final String? createdByEmail;
+  final String? updatedByEmail;
 
   ActiveSale({
     required this.id,
@@ -20,6 +22,8 @@ class ActiveSale {
     required this.updatedAt,
     required this.createdByUid,
     required this.updatedByUid,
+    this.createdByEmail,
+    this.updatedByEmail,
   });
 
   /// Total de pagamentos válidos já recebidos
@@ -62,6 +66,8 @@ class ActiveSale {
       'updatedAt': updatedAt.toIso8601String(),
       'createdByUid': createdByUid,
       'updatedByUid': updatedByUid,
+      'createdByEmail': createdByEmail,
+      'updatedByEmail': updatedByEmail,
     };
   }
 
@@ -84,6 +90,8 @@ class ActiveSale {
           : DateTime.now(),
       createdByUid: map['createdByUid'] as String? ?? '',
       updatedByUid: map['updatedByUid'] as String? ?? '',
+      createdByEmail: map['createdByEmail'] as String?,
+      updatedByEmail: map['updatedByEmail'] as String?,
     );
   }
 
@@ -96,6 +104,8 @@ class ActiveSale {
     DateTime? updatedAt,
     String? createdByUid,
     String? updatedByUid,
+    String? createdByEmail,
+    String? updatedByEmail,
   }) {
     return ActiveSale(
       id: id ?? this.id,
@@ -106,6 +116,8 @@ class ActiveSale {
       updatedAt: updatedAt ?? this.updatedAt,
       createdByUid: createdByUid ?? this.createdByUid,
       updatedByUid: updatedByUid ?? this.updatedByUid,
+      createdByEmail: createdByEmail ?? this.createdByEmail,
+      updatedByEmail: updatedByEmail ?? this.updatedByEmail,
     );
   }
 }

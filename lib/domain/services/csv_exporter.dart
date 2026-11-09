@@ -27,7 +27,7 @@ class CsvExporter {
     // --- SEÇÃO 1: VEÍCULOS ---
     buffer.writeln('--- 1. VEÍCULOS ---');
     buffer.writeln(
-      'Placa;Marca;Modelo;Versão;Ano Fab;Ano Mod;RENAVAM;CRV;Situação Documento;Status;Data Compra;Valor Compra (R\$);Preço Anunciado (R\$);Data Venda;Valor Venda (R\$);Total Recebido (R\$);Saldo a Receber (R\$);Custo Total (R\$);Lucro/Prejuízo (R\$)',
+      'Placa;Marca;Modelo;Versão;Ano Fab;Ano Mod;RENAVAM;CRV;Situação Documento;Status;Cadastrado Por;Data Compra;Valor Compra (R\$);Preço Anunciado (R\$);Data Venda;Valor Venda (R\$);Total Recebido (R\$);Saldo a Receber (R\$);Custo Total (R\$);Lucro/Prejuízo (R\$)',
     );
 
     for (final v in vehicles) {
@@ -47,6 +47,7 @@ class CsvExporter {
         _escape(v.crvNumber != null ? '\t${v.crvNumber}' : ''),
         _escape(v.docStatusLabel),
         _escape(v.isInStock ? 'Em estoque' : 'Vendido'),
+        _escape(v.createdByEmail ?? 'Operador'),
         _escape(Formatters.formatDate(v.purchaseDate)),
         _escapeCurrency(v.purchasePriceCents),
         _escapeCurrency(v.announcedPriceCents),
@@ -64,7 +65,7 @@ class CsvExporter {
 
     // --- SEÇÃO 2: DESPESAS ---
     buffer.writeln('--- 2. DESPESAS ---');
-    buffer.writeln('ID;Data Pagamento;Placa Veículo;Veículo;Categoria;Descrição;Valor (R\$);Status');
+    buffer.writeln('ID;Data Pagamento;Placa Veículo;Veículo;Categoria;Descrição;Valor (R\$);Cadastrado Por;Status');
 
     for (final e in expenses) {
       final relatedVehicle = vehicles.cast<Vehicle?>().firstWhere(
@@ -80,6 +81,7 @@ class CsvExporter {
         _escape(e.categoryLabel),
         _escape(e.description ?? ''),
         _escapeCurrency(e.amountCents),
+        _escape(e.createdByEmail ?? 'Operador'),
         _escape(e.isValid ? 'Válida' : 'Estornada'),
       ];
       buffer.writeln(row.join(';'));

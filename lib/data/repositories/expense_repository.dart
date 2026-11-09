@@ -24,7 +24,12 @@ class ExpenseRepository {
   }
 
   /// Cria uma nova despesa vinculada a um veículo existente
-  Future<String> createExpense(String workspaceId, Expense expense, String userUid) async {
+  Future<String> createExpense(
+    String workspaceId,
+    Expense expense,
+    String userUid, {
+    String? userEmail,
+  }) async {
     final col = _expensesCol(workspaceId);
     final docRef = col.doc();
     final now = DateTime.now();
@@ -35,6 +40,10 @@ class ExpenseRepository {
     data['updatedAt'] = now.toIso8601String();
     data['createdByUid'] = userUid;
     data['updatedByUid'] = userUid;
+    if (userEmail != null) {
+      data['createdByEmail'] = userEmail;
+      data['updatedByEmail'] = userEmail;
+    }
 
     await docRef.set(data);
     return docRef.id;

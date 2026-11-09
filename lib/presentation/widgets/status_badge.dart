@@ -6,6 +6,7 @@ class StatusBadge extends StatelessWidget {
   final String label;
   final Color backgroundColor;
   final Color textColor;
+  final Color? borderColor;
   final IconData? icon;
 
   const StatusBadge({
@@ -13,6 +14,7 @@ class StatusBadge extends StatelessWidget {
     required this.label,
     required this.backgroundColor,
     required this.textColor,
+    this.borderColor,
     this.icon,
   });
 
@@ -23,14 +25,16 @@ class StatusBadge extends StatelessWidget {
           label: 'Doc em dia',
           backgroundColor: AppTheme.successLight,
           textColor: AppTheme.successGreen,
-          icon: Icons.check_circle_outline,
+          borderColor: AppTheme.successBorder,
+          icon: Icons.check_circle,
         );
       case AppConstants.docStatusWithIssue:
         return const StatusBadge(
           label: 'Doc c/ pendência',
           backgroundColor: AppTheme.dangerLight,
           textColor: AppTheme.dangerRed,
-          icon: Icons.error_outline,
+          borderColor: AppTheme.dangerBorder,
+          icon: Icons.error,
         );
       case AppConstants.docStatusPendingCheck:
       default:
@@ -38,6 +42,7 @@ class StatusBadge extends StatelessWidget {
           label: 'Doc a verificar',
           backgroundColor: AppTheme.warningLight,
           textColor: AppTheme.warningOrange,
+          borderColor: AppTheme.warningBorder,
           icon: Icons.help_outline,
         );
     }
@@ -47,16 +52,18 @@ class StatusBadge extends StatelessWidget {
     if (isInStock) {
       return const StatusBadge(
         label: 'Em estoque',
-        backgroundColor: Color(0xFFEFF6FF), // Blue 50
+        backgroundColor: AppTheme.accentSoft,
         textColor: AppTheme.accentBlue,
-        icon: Icons.directions_car_filled_outlined,
+        borderColor: Color(0xFFBFDBFE),
+        icon: Icons.directions_car,
       );
     } else {
       return const StatusBadge(
         label: 'Vendido',
         backgroundColor: AppTheme.successLight,
         textColor: AppTheme.successGreen,
-        icon: Icons.verified_outlined,
+        borderColor: AppTheme.successBorder,
+        icon: Icons.verified,
       );
     }
   }
@@ -68,6 +75,7 @@ class StatusBadge extends StatelessWidget {
           label: 'Quitado',
           backgroundColor: AppTheme.successLight,
           textColor: AppTheme.successGreen,
+          borderColor: AppTheme.successBorder,
           icon: Icons.check,
         );
       case AppConstants.paymentStatusPartial:
@@ -75,7 +83,8 @@ class StatusBadge extends StatelessWidget {
           label: 'Parcial',
           backgroundColor: AppTheme.warningLight,
           textColor: AppTheme.warningOrange,
-          icon: Icons.pie_chart_outline,
+          borderColor: AppTheme.warningBorder,
+          icon: Icons.pie_chart,
         );
       case AppConstants.paymentStatusOpen:
       default:
@@ -83,7 +92,8 @@ class StatusBadge extends StatelessWidget {
           label: 'Em aberto',
           backgroundColor: AppTheme.dangerLight,
           textColor: AppTheme.dangerRed,
-          icon: Icons.hourglass_top_outlined,
+          borderColor: AppTheme.dangerBorder,
+          icon: Icons.hourglass_top,
         );
     }
   }
@@ -91,16 +101,17 @@ class StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
+        border: borderColor != null ? Border.all(color: borderColor!, width: 1) : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 14, color: textColor),
+            Icon(icon, size: 13, color: textColor),
             const SizedBox(width: 4),
           ],
           Text(
@@ -108,7 +119,7 @@ class StatusBadge extends StatelessWidget {
             style: TextStyle(
               color: textColor,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -116,4 +127,3 @@ class StatusBadge extends StatelessWidget {
     );
   }
 }
-

@@ -12,6 +12,7 @@ import '../../widgets/date_picker_field.dart';
 class VehicleFormScreen extends StatefulWidget {
   final String workspaceId;
   final String userUid;
+  final String? userEmail;
   final VehicleRepository vehicleRepository;
   final Vehicle? vehicleToEdit;
 
@@ -19,6 +20,7 @@ class VehicleFormScreen extends StatefulWidget {
     super.key,
     required this.workspaceId,
     required this.userUid,
+    this.userEmail,
     required this.vehicleRepository,
     this.vehicleToEdit,
   });
@@ -173,6 +175,7 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
         widget.workspaceId,
         vehicle,
         widget.userUid,
+        userEmail: widget.userEmail,
       );
 
       if (mounted) {
@@ -181,7 +184,7 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _saveError = 'Erro ao salvar veículo: $e';
+          _saveError = 'Registro não confirmado pelo servidor ($e). Seus dados continuam preenchidos. Verifique a conexão e tente novamente.';
         });
       }
     } finally {

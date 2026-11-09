@@ -32,27 +32,68 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _currentIndex = 0;
 
-  void _confirmSignOut() {
-    showDialog(
+  void _showUserBottomSheet() {
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Encerrar Sessão'),
-        content: Text('Deseja realmente sair da conta ${widget.userEmail ?? ""}?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(ctx).pop();
-              await widget.authRepository.signOut();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.dangerRed),
-            child: const Text('Sair'),
-          ),
-        ],
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (ctx) {
+        final initial = (widget.userEmail != null && widget.userEmail!.isNotEmpty)
+            ? widget.userEmail![0].toUpperCase()
+            : 'U';
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 30,
+                  backgroundColor: AppTheme.accentSoft,
+                  child: Text(
+                    initial,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.accentBlue,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  widget.userEmail ?? 'Usuário Autenticado',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textMain,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Espaço de Trabalho: AutoSaldo (Principal)',
+                  style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.logout, size: 20),
+                  label: const Text('Sair da Conta'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.dangerRed,
+                    minimumSize: const Size.fromHeight(48),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    Navigator.of(ctx).pop();
+                    await widget.authRepository.signOut();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -62,6 +103,7 @@ class _HomeShellState extends State<HomeShell> {
       StockScreen(
         workspaceId: widget.workspaceId,
         userUid: widget.userUid,
+        userEmail: widget.userEmail,
         vehicleRepository: widget.vehicleRepository,
         expenseRepository: widget.expenseRepository,
       ),
@@ -72,45 +114,53 @@ class _HomeShellState extends State<HomeShell> {
       ),
     ];
 
+    final initial = (widget.userEmail != null && widget.userEmail!.isNotEmpty)
+        ? widget.userEmail![0].toUpperCase()
+        : 'U';
+
     return Scaffold(
       appBar: AppBar(
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(
                 color: AppTheme.accentBlue,
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.directions_car, size: 18, color: Colors.white),
+              child: const Icon(Icons.directions_car, size: 20, color: Colors.white),
             ),
             const SizedBox(width: 10),
-            const Text('AutoSaldo'),
+            const Text(
+              'AutoSaldo',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
+              ),
+            ),
           ],
         ),
         actions: [
-          if (widget.userEmail != null) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(25),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+          // Avatar clicável do usuário
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: InkWell(
+              onTap: _showUserBottomSheet,
+              borderRadius: BorderRadius.circular(20),
+              child: CircleAvatar(
+                radius: 17,
+                backgroundColor: const Color(0xFFE2E8F0),
                 child: Text(
-                  widget.userEmail!,
-                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                  initial,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.primaryDark,
+                  ),
                 ),
               ),
             ),
-          ],
-          IconButton(
-            icon: const Icon(Icons.logout_outlined),
-            tooltip: 'Encerrar sessão',
-            onPressed: _confirmSignOut,
           ),
-          const SizedBox(width: 4),
         ],
       ),
       body: screens[_currentIndex],
@@ -137,4 +187,3 @@ class _HomeShellState extends State<HomeShell> {
     );
   }
 }
-

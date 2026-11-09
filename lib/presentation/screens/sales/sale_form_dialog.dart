@@ -14,6 +14,7 @@ class SaleFormDialog extends StatefulWidget {
   final Vehicle vehicle;
   final int totalCostCents;
   final String userUid;
+  final String? userEmail;
   final VehicleRepository vehicleRepository;
 
   const SaleFormDialog({
@@ -22,6 +23,7 @@ class SaleFormDialog extends StatefulWidget {
     required this.vehicle,
     required this.totalCostCents,
     required this.userUid,
+    this.userEmail,
     required this.vehicleRepository,
   });
 
@@ -145,6 +147,8 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
         updatedAt: now,
         createdByUid: widget.userUid,
         updatedByUid: widget.userUid,
+        createdByEmail: widget.userEmail,
+        updatedByEmail: widget.userEmail,
       );
 
       await widget.vehicleRepository.registerSale(
@@ -152,6 +156,7 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
         vehicleId: widget.vehicle.id,
         sale: activeSale,
         userUid: widget.userUid,
+        userEmail: widget.userEmail,
       );
 
       if (mounted) {

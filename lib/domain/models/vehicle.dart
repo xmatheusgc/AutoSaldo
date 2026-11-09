@@ -32,6 +32,8 @@ class Vehicle {
   final DateTime updatedAt;
   final String createdByUid;
   final String updatedByUid;
+  final String? createdByEmail;
+  final String? updatedByEmail;
 
   Vehicle({
     required this.id,
@@ -56,6 +58,8 @@ class Vehicle {
     required this.updatedAt,
     required this.createdByUid,
     required this.updatedByUid,
+    this.createdByEmail,
+    this.updatedByEmail,
   });
 
   bool get isInStock => activeSale == null;
@@ -92,6 +96,8 @@ class Vehicle {
       'updatedAt': updatedAt.toIso8601String(),
       'createdByUid': createdByUid,
       'updatedByUid': updatedByUid,
+      'createdByEmail': createdByEmail,
+      'updatedByEmail': updatedByEmail,
     };
   }
 
@@ -133,6 +139,8 @@ class Vehicle {
           : DateTime.now(),
       createdByUid: map['createdByUid'] as String? ?? '',
       updatedByUid: map['updatedByUid'] as String? ?? '',
+      createdByEmail: map['createdByEmail'] as String?,
+      updatedByEmail: map['updatedByEmail'] as String?,
     );
   }
 
@@ -160,6 +168,8 @@ class Vehicle {
     DateTime? updatedAt,
     String? createdByUid,
     String? updatedByUid,
+    String? createdByEmail,
+    String? updatedByEmail,
   }) {
     return Vehicle(
       id: id ?? this.id,
@@ -184,6 +194,8 @@ class Vehicle {
       updatedAt: updatedAt ?? this.updatedAt,
       createdByUid: createdByUid ?? this.createdByUid,
       updatedByUid: updatedByUid ?? this.updatedByUid,
+      createdByEmail: createdByEmail ?? this.createdByEmail,
+      updatedByEmail: updatedByEmail ?? this.updatedByEmail,
     );
   }
 }

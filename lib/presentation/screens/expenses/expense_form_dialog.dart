@@ -11,6 +11,7 @@ class ExpenseFormDialog extends StatefulWidget {
   final String workspaceId;
   final String vehicleId;
   final String userUid;
+  final String? userEmail;
   final ExpenseRepository expenseRepository;
 
   const ExpenseFormDialog({
@@ -18,6 +19,7 @@ class ExpenseFormDialog extends StatefulWidget {
     required this.workspaceId,
     required this.vehicleId,
     required this.userUid,
+    this.userEmail,
     required this.expenseRepository,
   });
 
@@ -68,12 +70,14 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         updatedAt: now,
         createdByUid: widget.userUid,
         updatedByUid: widget.userUid,
+        createdByEmail: widget.userEmail,
       );
 
       await widget.expenseRepository.createExpense(
         widget.workspaceId,
         expense,
         widget.userUid,
+        userEmail: widget.userEmail,
       );
 
       if (mounted) {

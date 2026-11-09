@@ -6,6 +6,7 @@ import '../../../domain/models/expense.dart';
 import '../../../domain/models/vehicle.dart';
 import '../../../domain/services/financial_calculator.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/car_plate_widget.dart';
 import '../../widgets/status_badge.dart';
 import 'vehicle_detail_screen.dart';
 import 'vehicle_form_screen.dart';
@@ -13,6 +14,7 @@ import 'vehicle_form_screen.dart';
 class StockScreen extends StatefulWidget {
   final String workspaceId;
   final String userUid;
+  final String? userEmail;
   final VehicleRepository vehicleRepository;
   final ExpenseRepository expenseRepository;
 
@@ -20,6 +22,7 @@ class StockScreen extends StatefulWidget {
     super.key,
     required this.workspaceId,
     required this.userUid,
+    this.userEmail,
     required this.vehicleRepository,
     required this.expenseRepository,
   });
@@ -78,17 +81,17 @@ class _StockScreenState extends State<StockScreen> {
               body: SafeArea(
                 child: Column(
                   children: [
-                    // Barra de busca e filtros
+                    // Barra de busca e filtros de topo
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
                       color: Colors.white,
                       child: Column(
                         children: [
                           TextField(
                             controller: _searchController,
                             decoration: InputDecoration(
-                              hintText: 'Buscar por placa, marca, modelo ou RENAVAM...',
-                              prefixIcon: const Icon(Icons.search, size: 20),
+                              hintText: 'Buscar por placa, modelo ou marca...',
+                              prefixIcon: const Icon(Icons.search, size: 22, color: AppTheme.textMuted),
                               suffixIcon: _searchQuery.isNotEmpty
                                   ? IconButton(
                                       icon: const Icon(Icons.clear, size: 18),
@@ -100,7 +103,17 @@ class _StockScreenState extends State<StockScreen> {
                                       },
                                     )
                                   : null,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              filled: true,
+                              fillColor: const Color(0xFFF1F5F9),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide.none,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide.none,
+                              ),
                             ),
                             onChanged: (val) {
                               setState(() {
@@ -108,22 +121,26 @@ class _StockScreenState extends State<StockScreen> {
                               });
                             },
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 12),
 
-                          // Segmented filter buttons
-                          Row(
-                            children: [
-                              _buildFilterChip('in_stock', 'Em estoque ($inStockCount)'),
-                              const SizedBox(width: 8),
-                              _buildFilterChip('sold', 'Vendidos ($soldCount)'),
-                              const SizedBox(width: 8),
-                              _buildFilterChip('all', 'Todos (${allVehicles.length})'),
-                            ],
+                          // Filtros de seleção rápida estilo iOS Segmented Control
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE2E8F0),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                _buildFilterTab('in_stock', 'Em estoque', inStockCount),
+                                _buildFilterTab('sold', 'Vendidos', soldCount),
+                                _buildFilterTab('all', 'Todos', allVehicles.length),
+                              ],
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const Divider(height: 1, color: AppTheme.borderSubtle),
 
                     // Lista de veículos
                     Expanded(
@@ -132,7 +149,7 @@ class _StockScreenState extends State<StockScreen> {
                           : filtered.isEmpty
                               ? _buildEmptyState()
                               : ListView.builder(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
                                   itemCount: filtered.length,
                                   itemBuilder: (context, index) {
                                     final vehicle = filtered[index];
@@ -155,14 +172,19 @@ class _StockScreenState extends State<StockScreen> {
               floatingActionButton: FloatingActionButton.extended(
                 backgroundColor: AppTheme.primaryDark,
                 foregroundColor: Colors.white,
-                icon: const Icon(Icons.add),
-                label: const Text('Cadastrar veículo', style: TextStyle(fontWeight: FontWeight.w600)),
+                elevation: 3,
+                icon: const Icon(Icons.add_circle_outline, size: 22),
+                label: const Text(
+                  'Cadastrar veículo',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                ),
                 onPressed: () async {
                   final newVehicleId = await Navigator.of(context).push<String>(
                     MaterialPageRoute(
                       builder: (_) => VehicleFormScreen(
                         workspaceId: widget.workspaceId,
                         userUid: widget.userUid,
+                        userEmail: widget.userEmail,
                         vehicleRepository: widget.vehicleRepository,
                       ),
                     ),
@@ -177,6 +199,7 @@ class _StockScreenState extends State<StockScreen> {
                           workspaceId: widget.workspaceId,
                           vehicleId: newVehicleId,
                           userUid: widget.userUid,
+                          userEmail: widget.userEmail,
                           vehicleRepository: widget.vehicleRepository,
                           expenseRepository: widget.expenseRepository,
                         ),
@@ -192,32 +215,38 @@ class _StockScreenState extends State<StockScreen> {
     );
   }
 
-  Widget _buildFilterChip(String filterKey, String label) {
+  Widget _buildFilterTab(String filterKey, String title, int count) {
     final isSelected = _filter == filterKey;
     return Expanded(
-      child: InkWell(
+      child: GestureDetector(
         onTap: () {
           setState(() {
             _filter = filterKey;
           });
         },
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? AppTheme.primaryDark : AppTheme.bgSurface,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isSelected ? AppTheme.primaryDark : AppTheme.borderSubtle,
-            ),
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(15),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
           ),
           child: Text(
-            label,
+            '$title ($count)',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: isSelected ? Colors.white : AppTheme.textMuted,
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+              color: isSelected ? AppTheme.primaryDark : AppTheme.textMuted,
             ),
           ),
         ),
@@ -233,24 +262,23 @@ class _StockScreenState extends State<StockScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppTheme.bgSurface,
+              padding: const EdgeInsets.all(22),
+              decoration: const BoxDecoration(
+                color: Colors.white,
                 shape: BoxShape.circle,
-                border: Border.all(color: AppTheme.borderSubtle),
               ),
-              child: const Icon(Icons.directions_car_outlined, size: 48, color: AppTheme.textMuted),
+              child: const Icon(Icons.directions_car_outlined, size: 52, color: AppTheme.textMuted),
             ),
             const SizedBox(height: 16),
             const Text(
               'Nenhum veículo encontrado',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textMain),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textMain),
             ),
             const SizedBox(height: 8),
             Text(
               _searchQuery.isNotEmpty
-                  ? 'Nenhum resultado corresponde à sua busca "$_searchQuery".'
-                  : 'Nenhum veículo cadastrado neste filtro.',
+                  ? 'Nenhum resultado para "$_searchQuery".'
+                  : 'Nenhum carro nesta categoria no momento.',
               style: const TextStyle(fontSize: 14, color: AppTheme.textMuted),
               textAlign: TextAlign.center,
             ),
@@ -266,181 +294,232 @@ class _StockScreenState extends State<StockScreen> {
     required int? estimatedProfit,
     required int? realizedProfit,
   }) {
-    return InkWell(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => VehicleDetailScreen(
-              workspaceId: widget.workspaceId,
-              vehicleId: vehicle.id,
-              userUid: widget.userUid,
-              vehicleRepository: widget.vehicleRepository,
-              expenseRepository: widget.expenseRepository,
-            ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.borderSubtle),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(8),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
-        );
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Linha Superior: Placa + Badges
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryDark,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      vehicle.formattedPlate,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        letterSpacing: 1.0,
-                      ),
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      StatusBadge.stockStatus(vehicle.isInStock),
-                      const SizedBox(width: 6),
-                      StatusBadge.docStatus(vehicle.docStatus),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-
-              // Título do veículo
-              Text(
-                vehicle.title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textMain,
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => VehicleDetailScreen(
+                  workspaceId: widget.workspaceId,
+                  vehicleId: vehicle.id,
+                  userUid: widget.userUid,
+                  userEmail: widget.userEmail,
+                  vehicleRepository: widget.vehicleRepository,
+                  expenseRepository: widget.expenseRepository,
                 ),
               ),
-              if (vehicle.manufactureYear != null || vehicle.modelYear != null) ...[
-                const SizedBox(height: 2),
-                Text(
-                  'Ano: ${vehicle.manufactureYear ?? "-"}/${vehicle.modelYear ?? "-"}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                ),
-              ],
-              const Divider(height: 20),
-
-              // Resumo Financeiro
-              if (vehicle.isInStock) ...[
+            );
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top row: Real Car Plate + Badges
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Total investido', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
-                        Text(
-                          Formatters.formatCurrency(totalCost),
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.primaryDark),
-                        ),
-                      ],
-                    ),
-                    if (vehicle.announcedPriceCents != null && estimatedProfit != null) ...[
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            estimatedProfit < 0 ? 'Prejuízo estimado' : 'Lucro estimado',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: estimatedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            Formatters.formatCurrency(estimatedProfit.abs()),
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: estimatedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                    CarPlateWidget(plate: vehicle.plate, fontSize: 14),
+                    const Spacer(),
+                    StatusBadge.stockStatus(vehicle.isInStock),
+                    const SizedBox(width: 6),
+                    StatusBadge.docStatus(vehicle.docStatus),
                   ],
                 ),
-              ] else if (vehicle.activeSale != null) ...[
+                const SizedBox(height: 12),
+
+                // Title and Version
+                Text(
+                  vehicle.title,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textMain,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 4),
+
+                // Years + User who registered
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Venda', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
-                        Text(
-                          Formatters.formatCurrency(vehicle.activeSale!.salePriceCents),
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.primaryDark),
-                        ),
-                      ],
+                    if (vehicle.manufactureYear != null || vehicle.modelYear != null) ...[
+                      Text(
+                        'Ano: ${vehicle.manufactureYear ?? "-"}/${vehicle.modelYear ?? "-"}',
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textMuted, fontWeight: FontWeight.w500),
+                      ),
+                      const Text(' • ', style: TextStyle(color: AppTheme.textLight)),
+                    ],
+                    const Icon(Icons.person_outline, size: 13, color: AppTheme.textLight),
+                    const SizedBox(width: 3),
+                    Flexible(
+                      child: Text(
+                        vehicle.createdByEmail != null && vehicle.createdByEmail!.isNotEmpty
+                            ? vehicle.createdByEmail!
+                            : 'Cadastrado',
+                        style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    if (realizedProfit != null) ...[
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            realizedProfit < 0 ? 'Prejuízo' : 'Lucro',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: realizedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
-                              fontWeight: FontWeight.w600,
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Financial Summary Cards
+                if (vehicle.isInStock) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.borderSubtle),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Total Investido', style: TextStyle(fontSize: 11, color: AppTheme.textMuted, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 2),
+                            Text(
+                              Formatters.formatCurrency(totalCost),
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.primaryDark),
                             ),
-                          ),
-                          Text(
-                            Formatters.formatCurrency(realizedProfit.abs()),
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: realizedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
-                            ),
+                          ],
+                        ),
+                        if (vehicle.announcedPriceCents != null && estimatedProfit != null) ...[
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                estimatedProfit < 0 ? 'Prejuízo Previsto' : 'Lucro Previsto',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: estimatedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${estimatedProfit < 0 ? "-" : "+"}${Formatters.formatCurrency(estimatedProfit.abs())}',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: estimatedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
-                      ),
-                    ],
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      ],
+                    ),
+                  ),
+                ] else if (vehicle.activeSale != null) ...[
+                  // Sold vehicle: 3 clear boxes
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.borderSubtle),
+                    ),
+                    child: Column(
                       children: [
-                        const Text('Saldo a receber', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
                         Row(
-                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              Formatters.formatCurrency(vehicle.activeSale!.balanceDueCents),
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: vehicle.activeSale!.balanceDueCents > 0
-                                    ? AppTheme.warningOrange
-                                    : AppTheme.successGreen,
-                              ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Venda Final', style: TextStyle(fontSize: 11, color: AppTheme.textMuted, fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 2),
+                                Text(
+                                  Formatters.formatCurrency(vehicle.activeSale!.salePriceCents),
+                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.primaryDark),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 4),
-                            StatusBadge.paymentStatus(vehicle.activeSale!.paymentStatus),
+                            if (realizedProfit != null) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: realizedProfit < 0 ? AppTheme.dangerLight : AppTheme.successLight,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: realizedProfit < 0 ? AppTheme.dangerBorder : AppTheme.successBorder,
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      realizedProfit < 0 ? 'Prejuízo Real' : 'Lucro no Bolso',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                        color: realizedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${realizedProfit < 0 ? "-" : "+"}${Formatters.formatCurrency(realizedProfit.abs())}',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w900,
+                                        color: realizedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const Divider(height: 16, color: AppTheme.borderSubtle),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Text('Status: ', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+                                StatusBadge.paymentStatus(vehicle.activeSale!.paymentStatus),
+                              ],
+                            ),
+                            if (vehicle.activeSale!.balanceDueCents > 0) ...[
+                              Text(
+                                'Falta receber: ${Formatters.formatCurrency(vehicle.activeSale!.balanceDueCents)}',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.warningOrange),
+                              ),
+                            ] else ...[
+                              const Text(
+                                '100% recebido',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.successGreen),
+                              ),
+                            ],
                           ],
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
