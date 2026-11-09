@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/constants.dart';
 import '../../../core/formatters.dart';
 import '../../../data/repositories/expense_repository.dart';
 import '../../../data/repositories/vehicle_repository.dart';
@@ -92,7 +93,7 @@ class _StockScreenState extends State<StockScreen> {
                     ),
                     child: Column(
                       children: [
-                        // Título e Ação rápida
+                        // Título do Estoque
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -109,7 +110,7 @@ class _StockScreenState extends State<StockScreen> {
                                   ),
                                 ),
                                 Text(
-                                  '$inStockCount ${inStockCount == 1 ? "veículo no pátio" : "veículos no pátio"}',
+                                  '$inStockCount ${inStockCount == 1 ? "veículo ativo" : "veículos ativos"}',
                                   style: const TextStyle(
                                     fontSize: 13,
                                     color: AppTheme.textMuted,
@@ -117,31 +118,6 @@ class _StockScreenState extends State<StockScreen> {
                                   ),
                                 ),
                               ],
-                            ),
-                            FilledButton.icon(
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text('Novo Carro', style: TextStyle(fontWeight: FontWeight.w700)),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: AppTheme.accentBlue,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => VehicleFormScreen(
-                                      workspaceId: widget.workspaceId,
-                                      userUid: widget.userUid,
-                                      userEmail: widget.userEmail,
-                                      vehicleRepository: widget.vehicleRepository,
-                                    ),
-                                  ),
-                                );
-                              },
                             ),
                           ],
                         ),
@@ -398,8 +374,10 @@ class _StockScreenState extends State<StockScreen> {
                     CarPlateWidget(plate: vehicle.plate, fontSize: 14),
                     const Spacer(),
                     StatusBadge.stockStatus(vehicle.isInStock),
-                    const SizedBox(width: 6),
-                    StatusBadge.docStatus(vehicle.docStatus),
+                    if (vehicle.docStatus == AppConstants.docStatusWithIssue) ...[
+                      const SizedBox(width: 6),
+                      StatusBadge.docStatus(vehicle.docStatus),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -530,7 +508,7 @@ class _StockScreenState extends State<StockScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
                                     Text(
-                                      realizedProfit < 0 ? 'Prejuízo Real' : 'Lucro no Bolso',
+                                      realizedProfit < 0 ? 'Prejuízo Realizado' : 'Lucro Realizado',
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w800,

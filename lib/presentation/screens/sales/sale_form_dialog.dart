@@ -44,7 +44,6 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
   void initState() {
     super.initState();
     _saleDate = Formatters.todayIsoDate();
-    // Sugere preço anunciado se preenchido
     _salePriceCents = widget.vehicle.announcedPriceCents ?? 0;
   }
 
@@ -64,53 +63,49 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
       return;
     }
 
-    // Diálogo de confirmação do resumo antes de gravar
     final profit = _salePriceCents - widget.totalCostCents;
     final isLoss = profit < 0;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Confirmar Venda'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Confirmar Venda', style: TextStyle(fontWeight: FontWeight.w800)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Confira o resumo financeiro antes de registrar:',
-              style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
-            ),
-            const SizedBox(height: 14),
             _summaryRow('Veículo:', widget.vehicle.title),
             _summaryRow('Placa:', widget.vehicle.formattedPlate),
-            _summaryRow('Data da venda:', Formatters.formatDate(_saleDate)),
+            _summaryRow('Data:', Formatters.formatDate(_saleDate)),
             _summaryRow('Custo total:', Formatters.formatCurrency(widget.totalCostCents)),
             _summaryRow('Valor negociado:', Formatters.formatCurrency(_salePriceCents), bold: true),
-            const Divider(height: 20),
+            const Divider(height: 18),
             _summaryRow(
-              isLoss ? 'Prejuízo estimado:' : 'Lucro na venda:',
+              isLoss ? 'Prejuízo:' : 'Lucro:',
               Formatters.formatCurrency(profit.abs()),
               valueColor: isLoss ? AppTheme.dangerRed : AppTheme.successGreen,
               bold: true,
             ),
-            if (_receiveAllAtSale) ...[
-              const SizedBox(height: 8),
-              _summaryRow('Recebimento à vista:', Formatters.formatCurrency(_salePriceCents), valueColor: AppTheme.accentBlue),
-            ] else ...[
-              const SizedBox(height: 8),
-              _summaryRow('Saldo a receber:', Formatters.formatCurrency(_salePriceCents), valueColor: AppTheme.warningOrange),
-            ],
+            _summaryRow(
+              _receiveAllAtSale ? 'Recebimento à vista:' : 'Saldo a receber:',
+              Formatters.formatCurrency(_salePriceCents),
+              valueColor: _receiveAllAtSale ? AppTheme.accentBlue : AppTheme.warningOrange,
+            ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Voltar e revisar'),
+            child: const Text('Voltar'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.successGreen),
-            child: const Text('Confirmar e Gravar'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.successGreen,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Confirmar Venda'),
           ),
         ],
       ),
@@ -126,23 +121,25 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
     try {
       final now = DateTime.now();
       final saleId = 'sale_${now.millisecondsSinceEpoch}';
+      final payments = <Payment>[];
 
-      final List<Payment> initialPayments = [];
       if (_receiveAllAtSale) {
-        initialPayments.add(Payment(
-          id: 'pay_${now.millisecondsSinceEpoch}',
-          amountCents: _salePriceCents,
-          date: _saleDate,
-          createdAt: now,
-          createdByUid: widget.userUid,
-        ));
+        payments.add(
+          Payment(
+            id: 'pay_${now.millisecondsSinceEpoch}',
+            amountCents: _salePriceCents,
+            date: _saleDate,
+            createdAt: now,
+            createdByUid: widget.userUid,
+          ),
+        );
       }
 
       final activeSale = ActiveSale(
         id: saleId,
         saleDate: _saleDate,
         salePriceCents: _salePriceCents,
-        payments: initialPayments,
+        payments: payments,
         createdAt: now,
         updatedAt: now,
         createdByUid: widget.userUid,
@@ -202,149 +199,202 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
     final profit = _salePriceCents > 0 ? _salePriceCents - widget.totalCostCents : 0;
     final isLoss = profit < 0;
 
-    return AlertDialog(
-      title: const Text('Registrar Venda'),
-      content: SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  '${widget.vehicle.title} • ${widget.vehicle.formattedPlate}',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textMain),
-                ),
-                Text(
-                  'Custo total investido: ${Formatters.formatCurrency(widget.totalCostCents)}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                ),
-                const SizedBox(height: 16),
-
-                if (_error != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.dangerLight,
-                      borderRadius: BorderRadius.circular(8),
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 12,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Barra de arraste
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCBD5E1),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
                     ),
-                    child: Text(
-                      _error!,
-                      style: const TextStyle(color: AppTheme.dangerRed, fontSize: 13),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                ],
 
-                DatePickerField(
-                  label: 'Data da venda *',
-                  isoDate: _saleDate,
-                  minIsoDate: widget.vehicle.purchaseDate,
-                  onDateSelected: (newDate) {
-                    setState(() {
-                      _saleDate = newDate;
-                    });
-                  },
-                  helperText: 'Deve ser igual ou posterior a ${Formatters.formatDate(widget.vehicle.purchaseDate)}.',
-                ),
-                const SizedBox(height: 14),
-
-                CurrencyTextField(
-                  label: 'Valor final negociado *',
-                  initialValueCents: _salePriceCents,
-                  required: true,
-                  onChanged: (cents) {
-                    setState(() {
-                      _salePriceCents = cents;
-                    });
-                  },
-                ),
-                const SizedBox(height: 14),
-
-                // Indicador de lucro ou prejuízo em tempo real
-                if (_salePriceCents > 0) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isLoss ? AppTheme.dangerLight : AppTheme.successLight,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
+                    // Topo com Título e Fechar
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          isLoss ? 'Prejuízo na venda:' : 'Lucro na venda:',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: isLoss ? AppTheme.dangerRed : AppTheme.successGreen,
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Registrar Venda',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                color: AppTheme.textMain,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${widget.vehicle.title} • ${widget.vehicle.formattedPlate}',
+                              style: const TextStyle(fontSize: 13, color: AppTheme.textMuted, fontWeight: FontWeight.w600),
+                            ),
+                          ],
                         ),
-                        Text(
-                          Formatters.formatCurrency(profit.abs()),
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: isLoss ? AppTheme.dangerRed : AppTheme.successGreen,
-                          ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 22, color: AppTheme.textMuted),
+                          onPressed: () => Navigator.of(context).pop(),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                ],
+                    const SizedBox(height: 16),
 
-                // Atalho receber total na venda
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.bgSurface,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.borderSubtle),
-                  ),
-                  child: SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text(
-                      'Receber total na venda (à vista)',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    if (_error != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.dangerLight,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(color: AppTheme.dangerRed, fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+
+                    DatePickerField(
+                      label: 'Data da venda *',
+                      isoDate: _saleDate,
+                      minIsoDate: widget.vehicle.purchaseDate,
+                      onDateSelected: (newDate) {
+                        setState(() {
+                          _saleDate = newDate;
+                        });
+                      },
                     ),
-                    subtitle: const Text(
-                      'Registra entrada do valor integral na data da venda.',
-                      style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                    const SizedBox(height: 14),
+
+                    CurrencyTextField(
+                      label: 'Valor final negociado *',
+                      initialValueCents: _salePriceCents,
+                      required: true,
+                      onChanged: (cents) {
+                        setState(() {
+                          _salePriceCents = cents;
+                        });
+                      },
                     ),
-                    value: _receiveAllAtSale,
-                    activeThumbColor: AppTheme.accentBlue,
-                    onChanged: (val) {
-                      setState(() {
-                        _receiveAllAtSale = val;
-                      });
-                    },
-                  ),
+                    const SizedBox(height: 12),
+
+                    // Indicador de lucro ou prejuízo
+                    if (_salePriceCents > 0) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isLoss ? AppTheme.dangerLight : AppTheme.successLight,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isLoss ? AppTheme.dangerBorder : AppTheme.successBorder,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              isLoss ? 'Prejuízo na venda:' : 'Lucro na venda:',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: isLoss ? AppTheme.dangerRed : AppTheme.successGreen,
+                              ),
+                            ),
+                            Text(
+                              '${isLoss ? "-" : "+"}${Formatters.formatCurrency(profit.abs())}',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                color: isLoss ? AppTheme.dangerRed : AppTheme.successGreen,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // Atalho receber à vista
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.borderSubtle),
+                      ),
+                      child: SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'Receber total na venda (à vista)',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                        ),
+                        value: _receiveAllAtSale,
+                        activeThumbColor: AppTheme.accentBlue,
+                        onChanged: (val) {
+                          setState(() {
+                            _receiveAllAtSale = val;
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Botão Principal
+                    ElevatedButton(
+                      onPressed: _isSaving ? null : _handleConfirmSale,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryDark,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        minimumSize: const Size.fromHeight(50),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text(
+                              'Continuar',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                            ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        ElevatedButton(
-          onPressed: _isSaving ? null : _handleConfirmSale,
-          style: ElevatedButton.styleFrom(minimumSize: const Size(130, 44)),
-          child: _isSaving
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                )
-              : const Text('Continuar'),
-        ),
-      ],
     );
   }
 }

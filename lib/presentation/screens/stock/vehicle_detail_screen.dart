@@ -310,8 +310,10 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
               CarPlateWidget(plate: vehicle.plate, fontSize: 16),
               const Spacer(),
               StatusBadge.stockStatus(vehicle.isInStock),
-              const SizedBox(width: 6),
-              StatusBadge.docStatus(vehicle.docStatus),
+              if (vehicle.docStatus == AppConstants.docStatusWithIssue) ...[
+                const SizedBox(width: 6),
+                StatusBadge.docStatus(vehicle.docStatus),
+              ],
             ],
           ),
           const SizedBox(height: 12),
@@ -475,7 +477,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          realizedProfit < 0 ? 'Prejuízo Real' : 'Lucro no Bolso',
+                          realizedProfit < 0 ? 'Prejuízo Realizado' : 'Lucro Realizado',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -543,8 +545,10 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         onPressed: () {
-          showDialog(
+          showModalBottomSheet(
             context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
             builder: (_) => SaleFormDialog(
               workspaceId: widget.workspaceId,
               vehicle: vehicle,
@@ -574,8 +578,10 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         onPressed: () {
-          showDialog(
+          showModalBottomSheet(
             context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
             builder: (_) => PaymentFormDialog(
               workspaceId: widget.workspaceId,
               vehicleId: vehicle.id,
@@ -685,8 +691,10 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                 label: const Text('Corrigir valor', style: TextStyle(fontSize: 12)),
                 style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
                 onPressed: () {
-                  showDialog(
+                  showModalBottomSheet(
                     context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
                     builder: (_) => UpdateSalePriceDialog(
                       workspaceId: widget.workspaceId,
                       vehicleId: vehicle.id,
@@ -791,8 +799,10 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 onPressed: () {
-                  showDialog(
+                  showModalBottomSheet(
                     context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
                     builder: (_) => ExpenseFormDialog(
                       workspaceId: widget.workspaceId,
                       vehicleId: vehicle.id,
@@ -917,7 +927,9 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                 'Documentos (CRLV-e)',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textMain),
               ),
-              StatusBadge.docStatus(vehicle.docStatus),
+              if (vehicle.docStatus == AppConstants.docStatusWithIssue) ...[
+                StatusBadge.docStatus(vehicle.docStatus),
+              ],
             ],
           ),
           const SizedBox(height: 12),

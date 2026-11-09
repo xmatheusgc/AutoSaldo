@@ -89,78 +89,126 @@ class _UpdateSalePriceDialogState extends State<UpdateSalePriceDialog> {
   Widget build(BuildContext context) {
     final totalReceived = widget.activeSale.totalReceivedCents;
 
-    return AlertDialog(
-      title: const Text('Corrigir Valor Negociado'),
-      content: SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 12,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text('Total já recebido:', style: TextStyle(fontSize: 13, color: AppTheme.textMuted)),
-                    Text(
-                      Formatters.formatCurrency(totalReceived),
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textMain),
+                    // Pílula cinza iOS
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCBD5E1),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+
+                    // Topo com Título e Fechar
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Corrigir Valor',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                color: AppTheme.textMain,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Já recebido: ${Formatters.formatCurrency(totalReceived)}',
+                              style: const TextStyle(fontSize: 13, color: AppTheme.textMuted, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 22, color: AppTheme.textMuted),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    if (_error != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.dangerLight,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(color: AppTheme.dangerRed, fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+
+                    CurrencyTextField(
+                      label: 'Novo valor negociado *',
+                      initialValueCents: _newPriceCents,
+                      required: true,
+                      onChanged: (cents) {
+                        setState(() {
+                          _newPriceCents = cents;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Botão Salvar
+                    ElevatedButton(
+                      onPressed: _isSaving ? null : _handleSave,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryDark,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        minimumSize: const Size.fromHeight(50),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text('Salvar Novo Valor', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-
-                if (_error != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.dangerLight,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      _error!,
-                      style: const TextStyle(color: AppTheme.dangerRed, fontSize: 13),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                ],
-
-                CurrencyTextField(
-                  label: 'Novo valor da venda *',
-                  initialValueCents: _newPriceCents,
-                  required: true,
-                  onChanged: (cents) {
-                    setState(() {
-                      _newPriceCents = cents;
-                    });
-                  },
-                  helperText: 'Deve ser igual ou maior que o total já recebido.',
-                ),
-              ],
+              ),
             ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        ElevatedButton(
-          onPressed: _isSaving ? null : _handleSave,
-          style: ElevatedButton.styleFrom(minimumSize: const Size(120, 44)),
-          child: _isSaving
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                )
-              : const Text('Atualizar'),
-        ),
-      ],
     );
   }
 }
-

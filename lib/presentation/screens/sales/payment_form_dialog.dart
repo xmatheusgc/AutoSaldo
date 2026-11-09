@@ -40,7 +40,6 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
   void initState() {
     super.initState();
     _paymentDate = Formatters.todayIsoDate();
-    // Sugere o saldo restante
     _amountCents = widget.activeSale.balanceDueCents;
   }
 
@@ -111,93 +110,138 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
   Widget build(BuildContext context) {
     final balanceDue = widget.activeSale.balanceDueCents;
 
-    return AlertDialog(
-      title: const Text('Registrar Entrada'),
-      content: SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 12,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text('Saldo a receber hoje:', style: TextStyle(fontSize: 13, color: AppTheme.textMuted)),
-                    Text(
-                      Formatters.formatCurrency(balanceDue),
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.warningOrange),
+                    // Pílula cinza iOS
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCBD5E1),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+
+                    // Topo com Título e Fechar
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Receber Parcela',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                color: AppTheme.textMain,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Saldo restante: ${Formatters.formatCurrency(balanceDue)}',
+                              style: const TextStyle(fontSize: 13, color: AppTheme.warningOrange, fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 22, color: AppTheme.textMuted),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    if (_error != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.dangerLight,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(color: AppTheme.dangerRed, fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+
+                    DatePickerField(
+                      label: 'Data do recebimento *',
+                      isoDate: _paymentDate,
+                      minIsoDate: widget.activeSale.saleDate,
+                      onDateSelected: (newDate) {
+                        setState(() {
+                          _paymentDate = newDate;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
+
+                    CurrencyTextField(
+                      label: 'Valor recebido *',
+                      initialValueCents: _amountCents,
+                      required: true,
+                      onChanged: (cents) {
+                        setState(() {
+                          _amountCents = cents;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Botão Gravar
+                    ElevatedButton(
+                      onPressed: _isSaving ? null : _handleSave,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryDark,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        minimumSize: const Size.fromHeight(50),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text('Confirmar Recebimento', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-
-                if (_error != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.dangerLight,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      _error!,
-                      style: const TextStyle(color: AppTheme.dangerRed, fontSize: 13),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                ],
-
-                DatePickerField(
-                  label: 'Data do recebimento *',
-                  isoDate: _paymentDate,
-                  minIsoDate: widget.activeSale.saleDate,
-                  onDateSelected: (newDate) {
-                    setState(() {
-                      _paymentDate = newDate;
-                    });
-                  },
-                  helperText: 'Deve ser igual ou posterior à venda (${Formatters.formatDate(widget.activeSale.saleDate)}).',
-                ),
-                const SizedBox(height: 14),
-
-                CurrencyTextField(
-                  label: 'Valor recebido *',
-                  initialValueCents: _amountCents,
-                  required: true,
-                  onChanged: (cents) {
-                    setState(() {
-                      _amountCents = cents;
-                    });
-                  },
-                ),
-              ],
+              ),
             ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        ElevatedButton(
-          onPressed: _isSaving ? null : _handleSave,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.successGreen,
-            minimumSize: const Size(120, 44),
-          ),
-          child: _isSaving
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                )
-              : const Text('Gravar'),
-        ),
-      ],
     );
   }
 }
-

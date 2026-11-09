@@ -100,108 +100,153 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Lançar Despesa'),
-      content: SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'Lançar somente despesas pagas. Despesas válidas compõem o custo total do veículo.',
-                  style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                ),
-                const SizedBox(height: 16),
-
-                if (_error != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.dangerLight,
-                      borderRadius: BorderRadius.circular(8),
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 12,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Pílula cinza iOS
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCBD5E1),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
                     ),
-                    child: Text(
-                      _error!,
-                      style: const TextStyle(color: AppTheme.dangerRed, fontSize: 13),
+
+                    // Topo com Título e Fechar
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Lançar Despesa',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: AppTheme.textMain,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 22, color: AppTheme.textMuted),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                ],
+                    const SizedBox(height: 16),
 
-                CurrencyTextField(
-                  label: 'Valor da despesa *',
-                  initialValueCents: _amountCents,
-                  required: true,
-                  onChanged: (val) {
-                    _amountCents = val;
-                  },
-                ),
-                const SizedBox(height: 14),
+                    if (_error != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.dangerLight,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(color: AppTheme.dangerRed, fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
 
-                DatePickerField(
-                  label: 'Data do pagamento *',
-                  isoDate: _date,
-                  onDateSelected: (newDate) {
-                    setState(() {
-                      _date = newDate;
-                    });
-                  },
-                  helperText: 'Despesas não aceitam datas futuras.',
-                ),
-                const SizedBox(height: 14),
+                    CurrencyTextField(
+                      label: 'Valor da despesa *',
+                      initialValueCents: _amountCents,
+                      required: true,
+                      onChanged: (val) {
+                        _amountCents = val;
+                      },
+                    ),
+                    const SizedBox(height: 14),
 
-                DropdownButtonFormField<String>(
-                  initialValue: _category,
-                  decoration: const InputDecoration(labelText: 'Categoria *'),
-                  items: AppConstants.expenseCategoryLabels.entries.map((entry) {
-                    return DropdownMenuItem(
-                      value: entry.key,
-                      child: Text(entry.value),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _category = val;
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 14),
+                    DatePickerField(
+                      label: 'Data do pagamento *',
+                      isoDate: _date,
+                      onDateSelected: (newDate) {
+                        setState(() {
+                          _date = newDate;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
 
-                TextFormField(
-                  controller: _descController,
-                  decoration: const InputDecoration(
-                    labelText: 'Descrição (opcional)',
-                    hintText: 'Ex: Troca de óleo e filtro',
-                  ),
+                    DropdownButtonFormField<String>(
+                      initialValue: _category,
+                      decoration: const InputDecoration(labelText: 'Categoria *'),
+                      items: AppConstants.expenseCategoryLabels.entries.map((entry) {
+                        return DropdownMenuItem(
+                          value: entry.key,
+                          child: Text(entry.value),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _category = val;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 14),
+
+                    TextFormField(
+                      controller: _descController,
+                      decoration: const InputDecoration(
+                        labelText: 'Descrição (opcional)',
+                        hintText: 'Ex: Troca de óleo, funilaria...',
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Botão Salvar
+                    ElevatedButton(
+                      onPressed: _isSaving ? null : _handleSave,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryDark,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        minimumSize: const Size.fromHeight(50),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text('Salvar Despesa', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        ElevatedButton(
-          onPressed: _isSaving ? null : _handleSave,
-          style: ElevatedButton.styleFrom(minimumSize: const Size(120, 44)),
-          child: _isSaving
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                )
-              : const Text('Gravar'),
-        ),
-      ],
     );
   }
 }
