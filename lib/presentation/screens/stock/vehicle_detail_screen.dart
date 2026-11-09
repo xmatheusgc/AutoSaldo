@@ -255,9 +255,11 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                           ),
                           const SizedBox(height: 14),
 
-                          // 3. Ações Rápidas (Registrar Venda / Recebimento / Despesa)
-                          _buildActionButtons(vehicle: vehicle, totalCost: totalCost),
-                          const SizedBox(height: 14),
+                          // 3. Ação Principal (Vender ou Receber)
+                          if (vehicle.isInStock || (vehicle.activeSale != null && vehicle.activeSale!.balanceDueCents > 0)) ...[
+                            _buildActionButtons(vehicle: vehicle, totalCost: totalCost),
+                            const SizedBox(height: 14),
+                          ],
 
                           // 4. Seção Venda e Recebimentos (Se vendido)
                           if (vehicle.isSold && vehicle.activeSale != null) ...[
@@ -286,6 +288,13 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
   }
 
   Widget _buildHeaderCard(Vehicle vehicle) {
+    final rawCreator = (vehicle.createdByEmail != null && vehicle.createdByEmail!.isNotEmpty)
+        ? vehicle.createdByEmail!.split('@')[0]
+        : null;
+    final creatorName = rawCreator != null
+        ? rawCreator[0].toUpperCase() + rawCreator.substring(1).toLowerCase()
+        : null;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -310,7 +319,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
             vehicle.title,
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppTheme.textMain),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Row(
             children: [
               if (vehicle.manufactureYear != null || vehicle.modelYear != null) ...[
@@ -318,19 +327,16 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                   'Ano ${vehicle.manufactureYear ?? "-"}/${vehicle.modelYear ?? "-"}',
                   style: const TextStyle(fontSize: 13, color: AppTheme.textMuted, fontWeight: FontWeight.w600),
                 ),
-                const Text(' • ', style: TextStyle(color: AppTheme.textLight)),
               ],
-              const Icon(Icons.person, size: 14, color: AppTheme.accentBlue),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  vehicle.createdByEmail != null && vehicle.createdByEmail!.isNotEmpty
-                      ? 'Cadastrado por: ${vehicle.createdByEmail}'
-                      : 'Cadastrado no estoque',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textMuted, fontWeight: FontWeight.w500),
-                  overflow: TextOverflow.ellipsis,
+              if (creatorName != null) ...[
+                const Text(' • ', style: TextStyle(color: AppTheme.textLight)),
+                const Icon(Icons.person, size: 14, color: AppTheme.accentBlue),
+                const SizedBox(width: 4),
+                Text(
+                  'Por: $creatorName',
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textMuted, fontWeight: FontWeight.w600),
                 ),
-              ),
+              ],
             ],
           ),
         ],
@@ -346,31 +352,24 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     required int? realizedProfit,
   }) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.borderSubtle),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(6),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Matemática do Veículo',
+            'Custos e Venda',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textMain),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
-          // Decomposição: Compra + Gastos = Custo Total
+          // Decomposição simplificada: Compra + Despesas = Custo Total
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(12),
@@ -378,36 +377,35 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
             ),
             child: Column(
               children: [
-                _buildMathRow('Valor pago na compra', Formatters.formatCurrency(vehicle.purchasePriceCents)),
+                _buildMathRow('Compra', Formatters.formatCurrency(vehicle.purchasePriceCents)),
                 const SizedBox(height: 8),
-                _buildMathRow('+ Gastos realizados (mecânica, peças...)', Formatters.formatCurrency(validExpensesTotal)),
-                const Divider(height: 18, color: AppTheme.borderSubtle),
+                _buildMathRow('+ Despesas', Formatters.formatCurrency(validExpensesTotal)),
+                const Divider(height: 16, color: AppTheme.borderSubtle),
                 _buildMathRow(
-                  '= CUSTO TOTAL INVESTIDO',
+                  'Custo Total',
                   Formatters.formatCurrency(totalCost),
                   bold: true,
                   color: AppTheme.primaryDark,
-                  fontSize: 16,
+                  fontSize: 15,
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
           // Se está em estoque: Preço Anunciado e Lucro Previsto
-          if (vehicle.isInStock) ...[
-            if (vehicle.announcedPriceCents != null) ...[
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFBFDBFE)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
+          if (vehicle.isInStock && vehicle.announcedPriceCents != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text('Preço Anunciado', style: TextStyle(fontSize: 12, color: AppTheme.textMuted, fontWeight: FontWeight.w600)),
@@ -418,38 +416,38 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                         ),
                       ],
                     ),
-                    if (estimatedProfit != null) ...[
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            estimatedProfit < 0 ? 'Prejuízo Previsto' : 'Lucro Previsto',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: estimatedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
-                              fontWeight: FontWeight.w700,
-                            ),
+                  ),
+                  if (estimatedProfit != null) ...[
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          estimatedProfit < 0 ? 'Prejuízo Previsto' : 'Lucro Estimado',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: estimatedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
+                            fontWeight: FontWeight.w700,
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${estimatedProfit < 0 ? "-" : "+"}${Formatters.formatCurrency(estimatedProfit.abs())}',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: estimatedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
-                            ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${estimatedProfit < 0 ? "-" : "+"}${Formatters.formatCurrency(estimatedProfit.abs())}',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: estimatedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ],
-                ),
+                ],
               ),
-            ],
-          ] else if (vehicle.activeSale != null) ...[
-            // Se está vendido: Resultado Realizado e Saldo
+            ),
+          ] else if (vehicle.isSold && vehicle.activeSale != null) ...[
+            // Se está vendido: Resultado Realizado e Lucro
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: (realizedProfit != null && realizedProfit < 0) ? AppTheme.dangerLight : AppTheme.successLight,
                 borderRadius: BorderRadius.circular(12),
@@ -458,18 +456,19 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                 ),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Vendido Por', style: TextStyle(fontSize: 12, color: AppTheme.textMuted, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 2),
-                      Text(
-                        Formatters.formatCurrency(vehicle.activeSale!.salePriceCents),
-                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: AppTheme.textMain),
-                      ),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Vendido Por', style: TextStyle(fontSize: 12, color: AppTheme.textMuted, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 2),
+                        Text(
+                          Formatters.formatCurrency(vehicle.activeSale!.salePriceCents),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textMain),
+                        ),
+                      ],
+                    ),
                   ),
                   if (realizedProfit != null) ...[
                     Column(
@@ -487,7 +486,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                         Text(
                           '${realizedProfit < 0 ? "-" : "+"}${Formatters.formatCurrency(realizedProfit.abs())}',
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize: 18,
                             fontWeight: FontWeight.w900,
                             color: realizedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
                           ),
@@ -531,88 +530,72 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
   Widget _buildActionButtons({required Vehicle vehicle, required int totalCost}) {
     final sale = vehicle.activeSale;
 
-    return Column(
-      children: [
-        if (vehicle.isInStock) ...[
-          // Botão Verde Grande para Vender
-          ElevatedButton.icon(
-            icon: const Icon(Icons.handshake, size: 22),
-            label: const Text('Registrar Venda deste Veículo'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.successGreen,
-              minimumSize: const Size.fromHeight(52),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (_) => SaleFormDialog(
-                  workspaceId: widget.workspaceId,
-                  vehicle: vehicle,
-                  totalCostCents: totalCost,
-                  userUid: widget.userUid,
-                  userEmail: widget.userEmail,
-                  vehicleRepository: widget.vehicleRepository,
-                ),
-              );
-            },
-          ),
-        ] else if (sale != null && sale.balanceDueCents > 0) ...[
-          // Botão de Receber Pagamento Pendente
-          ElevatedButton.icon(
-            icon: const Icon(Icons.payments_outlined, size: 22),
-            label: Text('Receber Pagamento (${Formatters.formatCurrency(sale.balanceDueCents)})'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentBlue,
-              minimumSize: const Size.fromHeight(52),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (_) => PaymentFormDialog(
-                  workspaceId: widget.workspaceId,
-                  vehicleId: vehicle.id,
-                  activeSale: sale,
-                  userUid: widget.userUid,
-                  vehicleRepository: widget.vehicleRepository,
-                ),
-              );
-            },
-          ),
-        ],
-        const SizedBox(height: 10),
-
-        // Botão para Lançar Despesa (Disponível em estoque ou após a venda)
-        OutlinedButton.icon(
-          icon: const Icon(Icons.build_circle_outlined, size: 20, color: AppTheme.primaryDark),
-          label: const Text('Lançar Gasto com este Veículo'),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(48),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          ),
-          onPressed: () {
-            showDialog(
-              context: context,
-              builder: (_) => ExpenseFormDialog(
-                workspaceId: widget.workspaceId,
-                vehicleId: vehicle.id,
-                userUid: widget.userUid,
-                userEmail: widget.userEmail,
-                expenseRepository: widget.expenseRepository,
-              ),
-            );
-          },
+    if (vehicle.isInStock) {
+      // Botão Verde Direto para Venda
+      return ElevatedButton.icon(
+        icon: const Icon(Icons.handshake, size: 22),
+        label: const Text('Vender Veículo', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppTheme.successGreen,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(50),
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
-      ],
-    );
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (_) => SaleFormDialog(
+              workspaceId: widget.workspaceId,
+              vehicle: vehicle,
+              totalCostCents: totalCost,
+              userUid: widget.userUid,
+              userEmail: widget.userEmail,
+              vehicleRepository: widget.vehicleRepository,
+            ),
+          );
+        },
+      );
+    }
+
+    if (sale != null && sale.balanceDueCents > 0) {
+      // Botão de Receber Pagamento Pendente
+      return ElevatedButton.icon(
+        icon: const Icon(Icons.payments_outlined, size: 22),
+        label: Text(
+          'Receber Parcela (${Formatters.formatCurrency(sale.balanceDueCents)})',
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppTheme.accentBlue,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(50),
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (_) => PaymentFormDialog(
+              workspaceId: widget.workspaceId,
+              vehicleId: vehicle.id,
+              activeSale: sale,
+              userUid: widget.userUid,
+              vehicleRepository: widget.vehicleRepository,
+            ),
+          );
+        },
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   Widget _buildSaleDetailsCard({required Vehicle vehicle}) {
     final sale = vehicle.activeSale!;
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -625,34 +608,82 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Detalhes da Venda',
+                'Venda & Recebimentos',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textMain),
               ),
               StatusBadge.paymentStatus(sale.paymentStatus),
             ],
           ),
-          const SizedBox(height: 14),
-
-          _buildMathRow('Data da venda:', Formatters.formatDate(sale.saleDate)),
-          const SizedBox(height: 6),
-          _buildMathRow('Valor negociado:', Formatters.formatCurrency(sale.salePriceCents), bold: true),
-          const SizedBox(height: 6),
-          _buildMathRow('Total já recebido:', Formatters.formatCurrency(sale.totalReceivedCents), color: AppTheme.successGreen, bold: true),
-          const SizedBox(height: 6),
-          _buildMathRow(
-            'Saldo restante a receber:',
-            Formatters.formatCurrency(sale.balanceDueCents),
-            color: sale.balanceDueCents > 0 ? AppTheme.warningOrange : AppTheme.successGreen,
-            bold: true,
-          ),
           const SizedBox(height: 12),
 
+          // Resumo em 3 colunas compactas
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.borderSubtle),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      const Text('Venda', style: TextStyle(fontSize: 11, color: AppTheme.textMuted, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 2),
+                      Text(
+                        Formatters.formatCurrency(sale.salePriceCents),
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppTheme.textMain),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(width: 1, height: 26, color: AppTheme.borderSubtle),
+                Expanded(
+                  child: Column(
+                    children: [
+                      const Text('Recebido', style: TextStyle(fontSize: 11, color: AppTheme.textMuted, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 2),
+                      Text(
+                        Formatters.formatCurrency(sale.totalReceivedCents),
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppTheme.successGreen),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(width: 1, height: 26, color: AppTheme.borderSubtle),
+                Expanded(
+                  child: Column(
+                    children: [
+                      const Text('Restante', style: TextStyle(fontSize: 11, color: AppTheme.textMuted, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 2),
+                      Text(
+                        Formatters.formatCurrency(sale.balanceDueCents),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: sale.balanceDueCents > 0 ? AppTheme.warningOrange : AppTheme.successGreen,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              OutlinedButton.icon(
-                icon: const Icon(Icons.edit, size: 15),
-                label: const Text('Corrigir valor', style: TextStyle(fontSize: 13)),
-                style: OutlinedButton.styleFrom(minimumSize: const Size(130, 36)),
+              Text(
+                'Data: ${Formatters.formatDate(sale.saleDate)}',
+                style: const TextStyle(fontSize: 12, color: AppTheme.textMuted, fontWeight: FontWeight.w500),
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.edit, size: 14),
+                label: const Text('Corrigir valor', style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
                 onPressed: () {
                   showDialog(
                     context: context,
@@ -668,10 +699,10 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
               ),
             ],
           ),
-          const Divider(height: 24, color: AppTheme.borderSubtle),
+          const Divider(height: 16, color: AppTheme.borderSubtle),
 
           // Entradas registradas
-          const Text('Pagamentos Recebidos:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          const Text('Pagamentos:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
 
           if (sale.payments.isEmpty) ...[
@@ -680,7 +711,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
             ...sale.payments.map((p) {
               return Container(
                 margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(10),
@@ -688,7 +719,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.check_circle_outline, color: AppTheme.successGreen, size: 18),
+                    const Icon(Icons.check_circle_outline, color: AppTheme.successGreen, size: 16),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -703,8 +734,8 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                     ),
                     if (p.isValid) ...[
                       IconButton(
-                        icon: const Icon(Icons.undo, color: AppTheme.warningOrange, size: 18),
-                        tooltip: 'Estornar este valor',
+                        icon: const Icon(Icons.undo, color: AppTheme.warningOrange, size: 16),
+                        tooltip: 'Estornar valor',
                         onPressed: () => _revertPayment(p),
                       ),
                     ] else ...[
@@ -716,11 +747,13 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
             }),
           ],
 
-          const SizedBox(height: 14),
-          TextButton.icon(
-            icon: const Icon(Icons.cancel_outlined, color: AppTheme.dangerRed, size: 18),
-            label: const Text('Cancelar venda e retornar ao estoque', style: TextStyle(color: AppTheme.dangerRed, fontSize: 13)),
-            onPressed: () => _cancelSale(sale),
+          const SizedBox(height: 10),
+          Center(
+            child: TextButton.icon(
+              icon: const Icon(Icons.cancel_outlined, color: AppTheme.dangerRed, size: 16),
+              label: const Text('Cancelar venda e retornar ao estoque', style: TextStyle(color: AppTheme.dangerRed, fontSize: 12)),
+              onPressed: () => _cancelSale(sale),
+            ),
           ),
         ],
       ),
@@ -728,8 +761,10 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
   }
 
   Widget _buildExpensesCard({required Vehicle vehicle, required List<Expense> expenses}) {
+    final validCount = expenses.where((e) => e.isValid).length;
+
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -741,13 +776,20 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Gastos com o Carro',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textMain),
+              Text(
+                'Despesas ($validCount)',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textMain),
               ),
-              IconButton(
-                icon: const Icon(Icons.add_circle, color: AppTheme.accentBlue, size: 24),
-                tooltip: 'Lançar gasto',
+              FilledButton.tonalIcon(
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Novo Gasto', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.accentSoft,
+                  foregroundColor: AppTheme.accentBlue,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
                 onPressed: () {
                   showDialog(
                     context: context,
@@ -769,15 +811,19 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Text(
-                'Nenhum gasto extra lançado para este veículo. Apenas o valor da compra.',
+                'Nenhuma despesa lançada.',
                 style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
               ),
             ),
           ] else ...[
             ...expenses.map((e) {
+              final rawEmail = (e.createdByEmail != null && e.createdByEmail!.isNotEmpty)
+                  ? e.createdByEmail!.split('@')[0]
+                  : null;
+
               return Container(
                 margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: e.isValid ? const Color(0xFFF8FAFC) : AppTheme.dangerLight.withAlpha(50),
                   borderRadius: BorderRadius.circular(10),
@@ -803,7 +849,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                             Text(e.description!, style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
                           ],
                           Text(
-                            'Data: ${Formatters.formatDate(e.date)}${e.createdByEmail != null ? " • por ${e.createdByEmail}" : ""}',
+                            '${Formatters.formatDate(e.date)}${rawEmail != null ? " • Por: $rawEmail" : ""}',
                             style: const TextStyle(fontSize: 11, color: AppTheme.textLight),
                           ),
                         ],
@@ -820,7 +866,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                     ),
                     if (e.isValid) ...[
                       IconButton(
-                        icon: const Icon(Icons.undo, color: AppTheme.warningOrange, size: 18),
+                        icon: const Icon(Icons.undo, color: AppTheme.warningOrange, size: 16),
                         tooltip: 'Estornar gasto',
                         onPressed: () => _revertExpense(e),
                       ),
@@ -844,18 +890,18 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     if (category == AppConstants.expenseCategoryCommission) iconData = Icons.paid_outlined;
 
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(7),
       decoration: BoxDecoration(
         color: const Color(0xFFE2E8F0),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Icon(iconData, size: 18, color: AppTheme.primaryDark),
+      child: Icon(iconData, size: 16, color: AppTheme.primaryDark),
     );
   }
 
   Widget _buildDocsCard(Vehicle vehicle) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -868,7 +914,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Documentação (CRLV-e)',
+                'Documentos (CRLV-e)',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textMain),
               ),
               StatusBadge.docStatus(vehicle.docStatus),
@@ -884,23 +930,50 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                'Observação da pendência: ${vehicle.docNotes}',
+                'Observação: ${vehicle.docNotes}',
                 style: const TextStyle(fontSize: 13, color: Color(0xFF92400E), fontWeight: FontWeight.w600),
               ),
             ),
             const SizedBox(height: 12),
           ],
-          _buildMathRow('Código RENAVAM:', vehicle.renavam ?? 'Não informado'),
-          const SizedBox(height: 6),
-          _buildMathRow('Exercício CRLV:', vehicle.licensingYear?.toString() ?? 'Não informado'),
-          const SizedBox(height: 6),
-          _buildMathRow('Número do CRV:', vehicle.crvNumber ?? 'Não informado'),
-          const SizedBox(height: 6),
-          _buildMathRow('Data da Compra:', Formatters.formatDate(vehicle.purchaseDate)),
+          Row(
+            children: [
+              Expanded(child: _buildDocField('RENAVAM', vehicle.renavam ?? '-')),
+              const SizedBox(width: 10),
+              Expanded(child: _buildDocField('CRV', vehicle.crvNumber ?? '-')),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: _buildDocField('Exercício CRLV', vehicle.licensingYear?.toString() ?? '-')),
+              const SizedBox(width: 10),
+              Expanded(child: _buildDocField('Data Compra', Formatters.formatDate(vehicle.purchaseDate))),
+            ],
+          ),
           if (vehicle.notes != null && vehicle.notes!.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text('Notas: ${vehicle.notes}', style: const TextStyle(fontSize: 13, color: AppTheme.textMuted)),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDocField(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textMuted, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 2),
+          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppTheme.textMain)),
         ],
       ),
     );
