@@ -243,7 +243,7 @@ class _HomeShellState extends State<HomeShell> {
                         Icon(Icons.check_circle, size: 13, color: Color(0xFF10B981)),
                         SizedBox(width: 5),
                         Text(
-                          'v1.2 App',
+                          'v1.3 App',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,

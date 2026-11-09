@@ -25,16 +25,24 @@
   <title>AutoSaldo - Gestão de Carros</title>
   <link rel="manifest" href="manifest.json">
   <script>
+    // Forçar limpeza imediata de Service Workers e Caches antigos no Safari/iOS
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(registrations) {
         for (let registration of registrations) {
-          registration.update();
+          registration.unregister();
+        }
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then(function(names) {
+        for (let name of names) {
+          caches.delete(name);
         }
       });
     }
   </script>
 </head>
 <body>
-  <script src="flutter_bootstrap.js?v=2" async></script>
+  <script src="flutter_bootstrap.js?v=20261108_2146" async></script>
 </body>
 </html>
