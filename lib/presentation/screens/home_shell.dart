@@ -36,7 +36,7 @@ class _HomeShellState extends State<HomeShell> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
         final initial = (widget.userEmail != null && widget.userEmail!.isNotEmpty)
@@ -45,23 +45,32 @@ class _HomeShellState extends State<HomeShell> {
 
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
                 CircleAvatar(
-                  radius: 30,
+                  radius: 34,
                   backgroundColor: AppTheme.accentSoft,
                   child: Text(
                     initial,
                     style: const TextStyle(
-                      fontSize: 24,
+                      fontSize: 26,
                       fontWeight: FontWeight.w900,
                       color: AppTheme.accentBlue,
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 Text(
                   widget.userEmail ?? 'Usuário Autenticado',
                   style: const TextStyle(
@@ -70,10 +79,26 @@ class _HomeShellState extends State<HomeShell> {
                     color: AppTheme.textMain,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'Workspace: AutoSaldo (Principal)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textMuted,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
                 const Text(
-                  'Espaço de Trabalho: AutoSaldo (Principal)',
-                  style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
+                  'AutoSaldo Web App • v1.2.1',
+                  style: TextStyle(fontSize: 11, color: AppTheme.textLight),
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton.icon(
@@ -81,8 +106,10 @@ class _HomeShellState extends State<HomeShell> {
                   label: const Text('Sair da Conta'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.dangerRed,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
                     minimumSize: const Size.fromHeight(48),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                   onPressed: () async {
                     Navigator.of(ctx).pop();
@@ -94,6 +121,150 @@ class _HomeShellState extends State<HomeShell> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildAppHeader() {
+    final initial = (widget.userEmail != null && widget.userEmail!.isNotEmpty)
+        ? widget.userEmail![0].toUpperCase()
+        : 'U';
+
+    final rawName = (widget.userEmail != null && widget.userEmail!.contains('@'))
+        ? widget.userEmail!.split('@')[0]
+        : 'Vendedor';
+    final cleanName = RegExp(r'^[a-zA-Z]+').stringMatch(rawName) ?? rawName;
+    final displayName = cleanName.isNotEmpty
+        ? cleanName[0].toUpperCase() + cleanName.substring(1).toLowerCase()
+        : 'Vendedor';
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Perfil clicável estilo App
+            InkWell(
+              onTap: _showUserBottomSheet,
+              borderRadius: BorderRadius.circular(24),
+              child: Row(
+                children: [
+                  Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor: const Color(0xFFEFF6FF),
+                        child: Text(
+                          initial,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF2563EB),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Olá, $displayName',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0F172A),
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      Row(
+                        children: const [
+                          Text(
+                            'AutoSaldo',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF2563EB),
+                            ),
+                          ),
+                          Text(
+                            ' • Garagem',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Lado direito: badge de versão e menu
+            Row(
+              children: [
+                InkWell(
+                  onTap: _showUserBottomSheet,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.check_circle, size: 13, color: Color(0xFF10B981)),
+                        SizedBox(width: 5),
+                        Text(
+                          'v1.2 App',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                IconButton(
+                  icon: const Icon(Icons.more_horiz_rounded, size: 24, color: Color(0xFF334155)),
+                  tooltip: 'Minha Conta',
+                  onPressed: _showUserBottomSheet,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -114,56 +285,13 @@ class _HomeShellState extends State<HomeShell> {
       ),
     ];
 
-    final initial = (widget.userEmail != null && widget.userEmail!.isNotEmpty)
-        ? widget.userEmail![0].toUpperCase()
-        : 'U';
-
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                color: AppTheme.accentBlue,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.directions_car, size: 20, color: Colors.white),
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              'AutoSaldo',
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.5,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          // Avatar clicável do usuário
-          Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: InkWell(
-              onTap: _showUserBottomSheet,
-              borderRadius: BorderRadius.circular(20),
-              child: CircleAvatar(
-                radius: 17,
-                backgroundColor: const Color(0xFFE2E8F0),
-                child: Text(
-                  initial,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.primaryDark,
-                  ),
-                ),
-              ),
-            ),
-          ),
+      body: Column(
+        children: [
+          _buildAppHeader(),
+          Expanded(child: screens[_currentIndex]),
         ],
       ),
-      body: screens[_currentIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {

@@ -108,16 +108,60 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
             final isProfitPositive = summary.soldVehiclesProfitCents >= 0;
 
             return Scaffold(
-              body: SafeArea(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 640),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // 1. Seletor de Mês e Ano Estilo iOS
+              backgroundColor: AppTheme.bgSurface,
+              body: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 640),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Título da tela e Exportação
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  'Resumo Financeiro',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppTheme.textMain,
+                                    letterSpacing: -0.5,
+                                  ),
+                                ),
+                                Text(
+                                  'Lucro, entradas e saídas consolidadas',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.textMuted,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            OutlinedButton.icon(
+                              icon: const Icon(Icons.file_download_outlined, size: 18),
+                              label: const Text('Exportar CSV', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.primaryDark,
+                                backgroundColor: Colors.white,
+                                side: const BorderSide(color: AppTheme.borderSubtle),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () => _exportCsv(vehicles, expenses),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        // 1. Seletor de Mês e Ano Estilo iOS
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(
@@ -552,7 +596,6 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                     ),
                   ),
                 ),
-              ),
             );
           },
         );

@@ -78,69 +78,130 @@ class _StockScreenState extends State<StockScreen> {
             }
 
             return Scaffold(
-              body: SafeArea(
-                child: Column(
-                  children: [
-                    // Barra de busca e filtros de topo
-                    Container(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+              backgroundColor: AppTheme.bgSurface,
+              body: Column(
+                children: [
+                  // Barra de busca e filtros de topo estilo App
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                    decoration: const BoxDecoration(
                       color: Colors.white,
-                      child: Column(
-                        children: [
-                          TextField(
-                            controller: _searchController,
-                            decoration: InputDecoration(
-                              hintText: 'Buscar por placa, modelo ou marca...',
-                              prefixIcon: const Icon(Icons.search, size: 22, color: AppTheme.textMuted),
-                              suffixIcon: _searchQuery.isNotEmpty
-                                  ? IconButton(
-                                      icon: const Icon(Icons.clear, size: 18),
-                                      onPressed: () {
-                                        setState(() {
-                                          _searchController.clear();
-                                          _searchQuery = '';
-                                        });
-                                      },
-                                    )
-                                  : null,
-                              filled: true,
-                              fillColor: const Color(0xFFF1F5F9),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide.none,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                            onChanged: (val) {
-                              setState(() {
-                                _searchQuery = val;
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Filtros de seleção rápida estilo iOS Segmented Control
-                          Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE2E8F0),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              children: [
-                                _buildFilterTab('in_stock', 'Em estoque', inStockCount),
-                                _buildFilterTab('sold', 'Vendidos', soldCount),
-                                _buildFilterTab('all', 'Todos', allVehicles.length),
-                              ],
-                            ),
-                          ),
-                        ],
+                      border: Border(
+                        bottom: BorderSide(color: AppTheme.borderSubtle, width: 1),
                       ),
                     ),
+                    child: Column(
+                      children: [
+                        // Título e Ação rápida
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Estoque',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppTheme.textMain,
+                                    letterSpacing: -0.5,
+                                  ),
+                                ),
+                                Text(
+                                  '$inStockCount ${inStockCount == 1 ? "veículo no pátio" : "veículos no pátio"}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.textMuted,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            FilledButton.icon(
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Novo Carro', style: TextStyle(fontWeight: FontWeight.w700)),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppTheme.accentBlue,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => VehicleFormScreen(
+                                      workspaceId: widget.workspaceId,
+                                      userUid: widget.userUid,
+                                      userEmail: widget.userEmail,
+                                      vehicleRepository: widget.vehicleRepository,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Campo de Busca
+                        TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: 'Buscar por placa, modelo ou marca...',
+                            prefixIcon: const Icon(Icons.search, size: 22, color: AppTheme.textMuted),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 18),
+                                    onPressed: () {
+                                      setState(() {
+                                        _searchController.clear();
+                                        _searchQuery = '';
+                                      });
+                                    },
+                                  )
+                                : null,
+                            filled: true,
+                            fillColor: const Color(0xFFF1F5F9),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          onChanged: (val) {
+                            setState(() {
+                              _searchQuery = val;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Filtros de seleção rápida estilo iOS Segmented Control
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE2E8F0),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              _buildFilterTab('in_stock', 'Em estoque', inStockCount),
+                              _buildFilterTab('sold', 'Vendidos', soldCount),
+                              _buildFilterTab('all', 'Todos', allVehicles.length),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
                     // Lista de veículos
                     Expanded(
@@ -168,7 +229,6 @@ class _StockScreenState extends State<StockScreen> {
                     ),
                   ],
                 ),
-              ),
               floatingActionButton: FloatingActionButton.extended(
                 backgroundColor: AppTheme.primaryDark,
                 foregroundColor: Colors.white,
