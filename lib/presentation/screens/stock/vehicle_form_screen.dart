@@ -435,244 +435,299 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final identificationCard = Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Identificação do Veículo',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textMain,
+                    ),
+                  ),
+                ),
+                if (_fipeError)
+                  TextButton.icon(
+                    onPressed: _loadFipeBrands,
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text('Recarregar FIPE', style: TextStyle(fontSize: 12)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SearchableSelectField(
+              label: 'Marca *',
+              hintText: 'Selecione a marca',
+              manualHintText: 'Ex: Volkswagen',
+              options: _commonFipeBrands.map((b) => b.name).toList(),
+              allOptions: _allFipeBrands.map((b) => b.name).toList(),
+              selectedValue: _selectedBrand?.name,
+              isOtherMode: _brandOther,
+              canSwitchToSelect: _allFipeBrands.isNotEmpty && !_fipeError,
+              manualController: _brandController,
+              isLoading: _loadingBrands,
+              onOptionSelected: _onBrandSelected,
+              onOtherSelected: _onBrandOtherSelected,
+              onSwitchToSelect: _onBrandSwitchToSelect,
+              validator: (val) =>
+                  val == null || val.trim().isEmpty ? 'Informe a marca' : null,
+            ),
+            const SizedBox(height: 14),
+            SearchableSelectField(
+              label: 'Modelo *',
+              hintText: _selectedBrand == null && !_brandOther
+                  ? 'Selecione a marca antes'
+                  : 'Selecione o modelo',
+              manualHintText: 'Ex: Gol',
+              options: _fipeModels.map((m) => m.baseModel).toList(),
+              selectedValue: _selectedModel?.baseModel,
+              isOtherMode: _modelOther,
+              canSwitchToSelect:
+                  _selectedBrand != null && _fipeModels.isNotEmpty && !_fipeError,
+              manualController: _modelController,
+              isLoading: _loadingModels,
+              enabled: _brandOther || _selectedBrand != null,
+              onOptionSelected: _onModelSelected,
+              onOtherSelected: _onModelOtherSelected,
+              onSwitchToSelect: _onModelSwitchToSelect,
+              validator: (val) =>
+                  val == null || val.trim().isEmpty ? 'Informe o modelo' : null,
+            ),
+            const SizedBox(height: 14),
+            SearchableSelectField(
+              label: 'Versão',
+              hintText: _selectedModel == null && !_modelOther
+                  ? 'Selecione o modelo antes'
+                  : 'Selecione a versão',
+              manualHintText: 'Ex: 1.6 MSI Flex',
+              options: _selectedModel?.versions ?? const [],
+              selectedValue:
+                  _versionController.text.isNotEmpty ? _versionController.text : null,
+              isOtherMode: _versionOther,
+              canSwitchToSelect: _selectedModel != null &&
+                  _selectedModel!.versions.isNotEmpty &&
+                  !_fipeError,
+              manualController: _versionController,
+              enabled: _modelOther || _selectedModel != null,
+              onOptionSelected: _onVersionSelected,
+              onOtherSelected: _onVersionOtherSelected,
+              onSwitchToSelect: _onVersionSwitchToSelect,
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _plateController,
+              textCapitalization: TextCapitalization.characters,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\-]')),
+                LengthLimitingTextInputFormatter(8),
+              ],
+              decoration: const InputDecoration(
+                labelText: 'Placa *',
+                hintText: 'ABC1234 ou BRA2E19',
+              ),
+              onChanged: (_) => _checkDuplicate(),
+              validator: (val) {
+                if (val == null || val.trim().isEmpty) {
+                  return 'Informe a placa';
+                }
+                if (!Validators.isValidPlate(val)) {
+                  return 'Placa inválida (padrão antigo ou Mercosul)';
+                }
+                return null;
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final purchaseCard = Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Dados Financeiros da Compra',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textMain,
+              ),
+            ),
+            const SizedBox(height: 16),
+            DatePickerField(
+              label: 'Data da Compra *',
+              isoDate: _purchaseDate,
+              onDateSelected: (newDate) {
+                setState(() {
+                  _purchaseDate = newDate;
+                });
+              },
+              helperText: 'A compra não aceita datas futuras.',
+            ),
+            const SizedBox(height: 14),
+            CurrencyTextField(
+              label: 'Valor pago na compra *',
+              initialValueCents: _purchasePriceCents,
+              required: true,
+              onChanged: (cents) {
+                _purchasePriceCents = cents;
+              },
+              helperText: 'A compra compõe o custo inicial do veículo.',
+            ),
+            const SizedBox(height: 14),
+            CurrencyTextField(
+              label: 'Preço anunciado para venda (opcional)',
+              initialValueCents: _announcedPriceCents,
+              onChanged: (cents) {
+                _announcedPriceCents = cents > 0 ? cents : null;
+              },
+              helperText: 'Usado para calcular a estimativa de lucro em estoque.',
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final saveButton = ElevatedButton(
+      onPressed: _isSaving ? null : _handleSave,
+      child: _isSaving
+          ? const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+            )
+          : Text(isEditing ? 'Salvar Alterações' : 'Concluir Cadastro'),
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: Text(isEditing ? 'Editar Veículo' : 'Cadastrar Veículo'),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 640),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Aviso de duplicidade
-                    if (_duplicateWarning != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppTheme.warningLight,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppTheme.warningOrange.withAlpha(60)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.warning_amber_rounded, color: AppTheme.warningOrange, size: 22),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                _duplicateWarning!,
-                                style: const TextStyle(
-                                  color: Color(0xFF92400E),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isTwoColumn = constraints.maxWidth >= 900;
+
+            return SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: isTwoColumn ? 24 : 16,
+                vertical: 20,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: isTwoColumn ? 1060 : 640),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Aviso de duplicidade
+                        if (_duplicateWarning != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.warningLight,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppTheme.warningOrange.withAlpha(60)),
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // Erro de gravação
-                    if (_saveError != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppTheme.dangerLight,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppTheme.dangerRed.withAlpha(60)),
-                        ),
-                        child: Text(
-                          _saveError!,
-                          style: const TextStyle(color: AppTheme.dangerRed, fontSize: 13),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // Bloco 1: Identificação Principal
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(18.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            child: Row(
                               children: [
-                                const Text(
-                                  'Identificação do Veículo',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppTheme.textMain,
+                                const Icon(Icons.warning_amber_rounded, color: AppTheme.warningOrange, size: 22),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    _duplicateWarning!,
+                                    style: const TextStyle(
+                                      color: Color(0xFF92400E),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                                if (_fipeError)
-                                  TextButton.icon(
-                                    onPressed: _loadFipeBrands,
-                                    icon: const Icon(Icons.refresh, size: 16),
-                                    label: const Text('Recarregar FIPE', style: TextStyle(fontSize: 12)),
-                                  ),
                               ],
                             ),
-                            const SizedBox(height: 12),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
 
-                            SearchableSelectField(
-                              label: 'Marca *',
-                              hintText: 'Selecione a marca',
-                              manualHintText: 'Ex: Volkswagen',
-                              options: _commonFipeBrands.map((b) => b.name).toList(),
-                              allOptions: _allFipeBrands.map((b) => b.name).toList(),
-                              selectedValue: _selectedBrand?.name,
-                              isOtherMode: _brandOther,
-                              canSwitchToSelect: _allFipeBrands.isNotEmpty && !_fipeError,
-                              manualController: _brandController,
-                              isLoading: _loadingBrands,
-                              onOptionSelected: _onBrandSelected,
-                              onOtherSelected: _onBrandOtherSelected,
-                              onSwitchToSelect: _onBrandSwitchToSelect,
-                              validator: (val) => val == null || val.trim().isEmpty
-                                  ? 'Informe a marca'
-                                  : null,
+                        // Erro de gravação
+                        if (_saveError != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.dangerLight,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppTheme.dangerRed.withAlpha(60)),
                             ),
-                            const SizedBox(height: 14),
-
-                            SearchableSelectField(
-                              label: 'Modelo *',
-                              hintText: _selectedBrand == null && !_brandOther
-                                  ? 'Selecione a marca antes'
-                                  : 'Selecione o modelo',
-                              manualHintText: 'Ex: Gol',
-                              options: _fipeModels.map((m) => m.baseModel).toList(),
-                              selectedValue: _selectedModel?.baseModel,
-                              isOtherMode: _modelOther,
-                              canSwitchToSelect:
-                                  _selectedBrand != null && _fipeModels.isNotEmpty && !_fipeError,
-                              manualController: _modelController,
-                              isLoading: _loadingModels,
-                              enabled: _brandOther || _selectedBrand != null,
-                              onOptionSelected: _onModelSelected,
-                              onOtherSelected: _onModelOtherSelected,
-                              onSwitchToSelect: _onModelSwitchToSelect,
-                              validator: (val) => val == null || val.trim().isEmpty
-                                  ? 'Informe o modelo'
-                                  : null,
+                            child: Text(
+                              _saveError!,
+                              style: const TextStyle(color: AppTheme.dangerRed, fontSize: 13),
                             ),
-                            const SizedBox(height: 14),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
 
-                            SearchableSelectField(
-                              label: 'Versão',
-                              hintText: _selectedModel == null && !_modelOther
-                                  ? 'Selecione o modelo antes'
-                                  : 'Selecione a versão',
-                              manualHintText: 'Ex: 1.6 MSI Flex',
-                              options: _selectedModel?.versions ?? const [],
-                              selectedValue: _versionController.text.isNotEmpty
-                                  ? _versionController.text
-                                  : null,
-                              isOtherMode: _versionOther,
-                              canSwitchToSelect: _selectedModel != null &&
-                                  _selectedModel!.versions.isNotEmpty &&
-                                  !_fipeError,
-                              manualController: _versionController,
-                              enabled: _modelOther || _selectedModel != null,
-                              onOptionSelected: _onVersionSelected,
-                              onOtherSelected: _onVersionOtherSelected,
-                              onSwitchToSelect: _onVersionSwitchToSelect,
-                            ),
-                            const SizedBox(height: 14),
-
-                            TextFormField(
-                              controller: _plateController,
-                              textCapitalization: TextCapitalization.characters,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\-]')),
-                                LengthLimitingTextInputFormatter(8),
-                              ],
-                              decoration: const InputDecoration(
-                                labelText: 'Placa *',
-                                hintText: 'ABC1234 ou BRA2E19',
+                        if (isTwoColumn)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    identificationCard,
+                                    const SizedBox(height: 14),
+                                    purchaseCard,
+                                  ],
+                                ),
                               ),
-                              onChanged: (_) => _checkDuplicate(),
-                              validator: (val) {
-                                if (val == null || val.trim().isEmpty) {
-                                  return 'Informe a placa';
-                                }
-                                if (!Validators.isValidPlate(val)) {
-                                  return 'Placa inválida (padrão antigo ou Mercosul)';
-                                }
-                                return null;
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Bloco 2: Compra e Valores
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(18.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Dados Financeiros da Compra',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textMain,
+                              const SizedBox(width: 20),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    _buildDocumentationCard(),
+                                    const SizedBox(height: 20),
+                                    saveButton,
+                                  ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            DatePickerField(
-                              label: 'Data da Compra *',
-                              isoDate: _purchaseDate,
-                              onDateSelected: (newDate) {
-                                setState(() {
-                                  _purchaseDate = newDate;
-                                });
-                              },
-                              helperText: 'A compra não aceita datas futuras.',
-                            ),
-                            const SizedBox(height: 14),
-
-                            CurrencyTextField(
-                              label: 'Valor pago na compra *',
-                              initialValueCents: _purchasePriceCents,
-                              required: true,
-                              onChanged: (cents) {
-                                _purchasePriceCents = cents;
-                              },
-                              helperText: 'A compra compõe o custo inicial do veículo.',
-                            ),
-                            const SizedBox(height: 14),
-
-                            CurrencyTextField(
-                              label: 'Preço anunciado para venda (opcional)',
-                              initialValueCents: _announcedPriceCents,
-                              onChanged: (cents) {
-                                _announcedPriceCents = cents > 0 ? cents : null;
-                              },
-                              helperText: 'Usado para calcular a estimativa de lucro em estoque.',
-                            ),
-                          ],
-                        ),
-                      ),
+                            ],
+                          )
+                        else ...[
+                          identificationCard,
+                          const SizedBox(height: 14),
+                          purchaseCard,
+                          const SizedBox(height: 14),
+                          _buildDocumentationCard(),
+                          const SizedBox(height: 24),
+                          saveButton,
+                          const SizedBox(height: 12),
+                        ],
+                      ],
                     ),
-                    const SizedBox(height: 14),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
 
-                    // Bloco 3: Dados do CRLV-e e Documentação
-                    Card(
+  Widget _buildDocumentationCard() {
+    return Card(
                       child: Padding(
                         padding: const EdgeInsets.all(18.0),
                         child: Column(
@@ -849,28 +904,6 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Botão Salvar
-                    ElevatedButton(
-                      onPressed: _isSaving ? null : _handleSave,
-                      child: _isSaving
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                            )
-                          : Text(isEditing ? 'Salvar Alterações' : 'Concluir Cadastro'),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+                    );
   }
 }

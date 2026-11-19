@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../core/formatters.dart';
+import '../theme/app_theme.dart';
 
 /// Máscara de entrada para valores monetários em Real (BRL) com preenchimento
 /// da direita para a esquerda em centavos (ex: "9500000" -> "95.000,00").
@@ -162,7 +163,7 @@ class _CurrencyTextFieldState extends State<CurrencyTextField> {
       decoration: InputDecoration(
         labelText: widget.label,
         prefixText: 'R\$ ',
-        prefixStyle: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87),
+        prefixStyle: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textMain),
         helperText: widget.helperText,
       ),
       onChanged: _handleChanged,

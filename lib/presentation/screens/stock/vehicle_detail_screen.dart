@@ -10,6 +10,7 @@ import '../../../domain/models/vehicle.dart';
 import '../../../domain/services/financial_calculator.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/car_plate_widget.dart';
+import '../../widgets/responsive_layout.dart';
 import '../../widgets/status_badge.dart';
 import '../expenses/expense_form_dialog.dart';
 import '../sales/payment_form_dialog.dart';
@@ -233,51 +234,118 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                 ],
               ),
               body: SafeArea(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 680),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // 1. Cabeçalho de Identificação com Placa Real
-                          _buildHeaderCard(vehicle),
-                          const SizedBox(height: 14),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isTwoColumn =
+                        constraints.maxWidth >= ResponsiveBreakpoints.detailTwoColumn;
 
-                          // 2. Card de Matemática Financeira
-                          _buildFinancialHeroCard(
-                            vehicle: vehicle,
-                            totalCost: totalCost,
-                            validExpensesTotal: validExpensesTotal,
-                            estimatedProfit: estimatedProfit,
-                            realizedProfit: realizedProfit,
+                    if (isTwoColumn) {
+                      return SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 1120),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  flex: 5,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      _buildHeaderCard(vehicle),
+                                      const SizedBox(height: 14),
+                                      _buildFinancialHeroCard(
+                                        vehicle: vehicle,
+                                        totalCost: totalCost,
+                                        validExpensesTotal: validExpensesTotal,
+                                        estimatedProfit: estimatedProfit,
+                                        realizedProfit: realizedProfit,
+                                      ),
+                                      if (vehicle.isInStock ||
+                                          (vehicle.activeSale != null &&
+                                              vehicle.activeSale!.balanceDueCents > 0)) ...[
+                                        const SizedBox(height: 14),
+                                        _buildActionButtons(vehicle: vehicle, totalCost: totalCost),
+                                      ],
+                                      const SizedBox(height: 14),
+                                      _buildDocsCard(vehicle),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 20),
+                                Expanded(
+                                  flex: 6,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      if (vehicle.isSold && vehicle.activeSale != null) ...[
+                                        _buildSaleDetailsCard(vehicle: vehicle),
+                                        const SizedBox(height: 14),
+                                      ],
+                                      _buildExpensesCard(
+                                        vehicle: vehicle,
+                                        expenses: vehicleExpenses,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 14),
+                        ),
+                      );
+                    }
 
-                          // 3. Ação Principal (Vender ou Receber)
-                          if (vehicle.isInStock || (vehicle.activeSale != null && vehicle.activeSale!.balanceDueCents > 0)) ...[
-                            _buildActionButtons(vehicle: vehicle, totalCost: totalCost),
-                            const SizedBox(height: 14),
-                          ],
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 680),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // 1. Cabeçalho de Identificação com Placa Real
+                              _buildHeaderCard(vehicle),
+                              const SizedBox(height: 14),
 
-                          // 4. Seção Venda e Recebimentos (Se vendido)
-                          if (vehicle.isSold && vehicle.activeSale != null) ...[
-                            _buildSaleDetailsCard(vehicle: vehicle),
-                            const SizedBox(height: 14),
-                          ],
+                              // 2. Card de Matemática Financeira
+                              _buildFinancialHeroCard(
+                                vehicle: vehicle,
+                                totalCost: totalCost,
+                                validExpensesTotal: validExpensesTotal,
+                                estimatedProfit: estimatedProfit,
+                                realizedProfit: realizedProfit,
+                              ),
+                              const SizedBox(height: 14),
 
-                          // 5. Seção de Despesas / Gastos Realizados
-                          _buildExpensesCard(vehicle: vehicle, expenses: vehicleExpenses),
-                          const SizedBox(height: 14),
+                              // 3. Ação Principal (Vender ou Receber)
+                              if (vehicle.isInStock ||
+                                  (vehicle.activeSale != null &&
+                                      vehicle.activeSale!.balanceDueCents > 0)) ...[
+                                _buildActionButtons(vehicle: vehicle, totalCost: totalCost),
+                                const SizedBox(height: 14),
+                              ],
 
-                          // 6. Dados de Documentação (CRLV-e)
-                          _buildDocsCard(vehicle),
-                          const SizedBox(height: 24),
-                        ],
+                              // 4. Seção Venda e Recebimentos (Se vendido)
+                              if (vehicle.isSold && vehicle.activeSale != null) ...[
+                                _buildSaleDetailsCard(vehicle: vehicle),
+                                const SizedBox(height: 14),
+                              ],
+
+                              // 5. Seção de Despesas / Gastos Realizados
+                              _buildExpensesCard(vehicle: vehicle, expenses: vehicleExpenses),
+                              const SizedBox(height: 14),
+
+                              // 6. Dados de Documentação (CRLV-e)
+                              _buildDocsCard(vehicle),
+                              const SizedBox(height: 24),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
             );
@@ -305,16 +373,26 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              CarPlateWidget(plate: vehicle.plate, fontSize: 16),
-              const Spacer(),
-              StatusBadge.stockStatus(vehicle.isInStock),
-              if (vehicle.docStatus == AppConstants.docStatusWithIssue) ...[
-                const SizedBox(width: 6),
-                StatusBadge.docStatus(vehicle.docStatus),
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                CarPlateWidget(plate: vehicle.plate, fontSize: 16),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    StatusBadge.stockStatus(vehicle.isInStock),
+                    if (vehicle.docStatus == AppConstants.docStatusWithIssue)
+                      StatusBadge.docStatus(vehicle.docStatus),
+                  ],
+                ),
               ],
-            ],
+            ),
           ),
           const SizedBox(height: 12),
           Text(
@@ -322,18 +400,20 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppTheme.textMain),
           ),
           const SizedBox(height: 6),
-          Row(
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 4,
+            runSpacing: 4,
             children: [
-              if (vehicle.manufactureYear != null || vehicle.modelYear != null) ...[
+              if (vehicle.manufactureYear != null || vehicle.modelYear != null)
                 Text(
                   'Ano ${vehicle.manufactureYear ?? "-"}/${vehicle.modelYear ?? "-"}',
                   style: const TextStyle(fontSize: 13, color: AppTheme.textMuted, fontWeight: FontWeight.w600),
                 ),
-              ],
               if (creatorName != null) ...[
-                const Text(' • ', style: TextStyle(color: AppTheme.textLight)),
+                if (vehicle.manufactureYear != null || vehicle.modelYear != null)
+                  const Text(' • ', style: TextStyle(color: AppTheme.textLight)),
                 const Icon(Icons.person, size: 14, color: AppTheme.accentBlue),
-                const SizedBox(width: 4),
                 Text(
                   'Por: $creatorName',
                   style: const TextStyle(fontSize: 12, color: AppTheme.textMuted, fontWeight: FontWeight.w600),
@@ -509,14 +589,17 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: fontSize,
-            fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
-            color: color ?? AppTheme.textMuted,
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: bold ? FontWeight.w800 : FontWeight.w500,
+              color: color ?? AppTheme.textMuted,
+            ),
           ),
         ),
+        const SizedBox(width: 8),
         Text(
           value,
           style: TextStyle(
@@ -545,10 +628,8 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         onPressed: () {
-          showModalBottomSheet(
+          showAdaptiveModalSheet(
             context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
             builder: (_) => SaleFormDialog(
               workspaceId: widget.workspaceId,
               vehicle: vehicle,
@@ -578,10 +659,8 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         onPressed: () {
-          showModalBottomSheet(
+          showAdaptiveModalSheet(
             context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
             builder: (_) => PaymentFormDialog(
               workspaceId: widget.workspaceId,
               vehicleId: vehicle.id,
@@ -691,10 +770,8 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                 label: const Text('Corrigir valor', style: TextStyle(fontSize: 12)),
                 style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
                 onPressed: () {
-                  showModalBottomSheet(
+                  showAdaptiveModalSheet(
                     context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
                     builder: (_) => UpdateSalePriceDialog(
                       workspaceId: widget.workspaceId,
                       vehicleId: vehicle.id,
@@ -784,10 +861,13 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Despesas ($validCount)',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textMain),
+              Expanded(
+                child: Text(
+                  'Despesas ($validCount)',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textMain),
+                ),
               ),
+              const SizedBox(width: 8),
               FilledButton.tonalIcon(
                 icon: const Icon(Icons.add, size: 16),
                 label: const Text('Novo Gasto', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
@@ -799,10 +879,8 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 onPressed: () {
-                  showModalBottomSheet(
+                  showAdaptiveModalSheet(
                     context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
                     builder: (_) => ExpenseFormDialog(
                       workspaceId: widget.workspaceId,
                       vehicleId: vehicle.id,
@@ -923,11 +1001,14 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Documentos (CRLV-e)',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textMain),
+              const Expanded(
+                child: Text(
+                  'Documentos (CRLV-e)',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textMain),
+                ),
               ),
               if (vehicle.docStatus == AppConstants.docStatusWithIssue) ...[
+                const SizedBox(width: 8),
                 StatusBadge.docStatus(vehicle.docStatus),
               ],
             ],

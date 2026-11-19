@@ -6,6 +6,7 @@ import '../../../domain/models/expense.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/currency_text_field.dart';
 import '../../widgets/date_picker_field.dart';
+import '../../widgets/responsive_layout.dart';
 
 class ExpenseFormDialog extends StatefulWidget {
   final String workspaceId;
@@ -100,42 +101,13 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 12,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Pílula cinza iOS
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFCBD5E1),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
+    return AdaptiveModalContainer(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
 
                     // Topo com Título e Fechar
                     Row(
@@ -196,6 +168,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
 
                     DropdownButtonFormField<String>(
                       initialValue: _category,
+                      isExpanded: true,
                       decoration: const InputDecoration(labelText: 'Categoria *'),
                       items: AppConstants.expenseCategoryLabels.entries.map((entry) {
                         return DropdownMenuItem(
@@ -240,11 +213,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                             )
                           : const Text('Salvar Despesa', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                     ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          ],
         ),
       ),
     );

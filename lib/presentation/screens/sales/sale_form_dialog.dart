@@ -8,6 +8,7 @@ import '../../../domain/models/vehicle.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/currency_text_field.dart';
 import '../../widgets/date_picker_field.dart';
+import '../../widgets/responsive_layout.dart';
 
 class SaleFormDialog extends StatefulWidget {
   final String workspaceId;
@@ -199,42 +200,13 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
     final profit = _salePriceCents > 0 ? _salePriceCents - widget.totalCostCents : 0;
     final isLoss = profit < 0;
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 12,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Barra de arraste
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFCBD5E1),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
+    return AdaptiveModalContainer(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
 
                     // Topo com Título e Fechar
                     Row(
@@ -388,11 +360,7 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
                               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                             ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          ],
         ),
       ),
     );

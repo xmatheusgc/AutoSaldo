@@ -8,6 +8,7 @@ import '../../../domain/models/vehicle.dart';
 import '../../../domain/services/financial_calculator.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/car_plate_widget.dart';
+import '../../widgets/responsive_layout.dart';
 import '../../widgets/status_badge.dart';
 import 'vehicle_detail_screen.dart';
 import 'vehicle_form_screen.dart';
@@ -43,8 +44,94 @@ class _StockScreenState extends State<StockScreen> {
     super.dispose();
   }
 
+  Future<void> _openNewVehicleForm() async {
+    final newVehicleId = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => VehicleFormScreen(
+          workspaceId: widget.workspaceId,
+          userUid: widget.userUid,
+          userEmail: widget.userEmail,
+          vehicleRepository: widget.vehicleRepository,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (newVehicleId != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => VehicleDetailScreen(
+            workspaceId: widget.workspaceId,
+            vehicleId: newVehicleId,
+            userUid: widget.userUid,
+            userEmail: widget.userEmail,
+            vehicleRepository: widget.vehicleRepository,
+            expenseRepository: widget.expenseRepository,
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _buildSearchField() {
+    return TextField(
+      controller: _searchController,
+      decoration: InputDecoration(
+        hintText: 'Buscar por placa, modelo ou marca...',
+        prefixIcon: const Icon(Icons.search, size: 22, color: AppTheme.textMuted),
+        suffixIcon: _searchQuery.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.clear, size: 18),
+                onPressed: () {
+                  setState(() {
+                    _searchController.clear();
+                    _searchQuery = '';
+                  });
+                },
+              )
+            : null,
+        filled: true,
+        fillColor: const Color(0xFFF1F5F9),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+      ),
+      onChanged: (val) {
+        setState(() {
+          _searchQuery = val;
+        });
+      },
+    );
+  }
+
+  Widget _buildSegmentedFilter(int inStockCount, int soldCount, int totalCount) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE2E8F0),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          _buildFilterTab('in_stock', 'Em estoque', inStockCount),
+          _buildFilterTab('sold', 'Vendidos', soldCount),
+          _buildFilterTab('all', 'Todos', totalCount),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isWide = ResponsiveBreakpoints.isTabletOrDesktop(context);
+
     return StreamBuilder<List<Vehicle>>(
       stream: widget.vehicleRepository.getVehiclesStream(widget.workspaceId),
       builder: (context, vSnapshot) {
@@ -82,172 +169,207 @@ class _StockScreenState extends State<StockScreen> {
               backgroundColor: AppTheme.bgSurface,
               body: Column(
                 children: [
-                  // Barra de busca e filtros de topo estilo App
+                  // Barra de busca e filtros de topo
                   Container(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                    padding: EdgeInsets.fromLTRB(
+                      isWide ? 24 : 16,
+                      isWide ? 18 : 14,
+                      isWide ? 24 : 16,
+                      isWide ? 18 : 14,
+                    ),
                     decoration: const BoxDecoration(
                       color: Colors.white,
                       border: Border(
                         bottom: BorderSide(color: AppTheme.borderSubtle, width: 1),
                       ),
                     ),
-                    child: Column(
-                      children: [
-                        // Título do Estoque
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: ResponsiveBreakpoints.maxContentWidth,
+                        ),
+                        child: Column(
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            // Título do Estoque (+ CTA no desktop)
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'Estoque',
-                                  style: TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w900,
-                                    color: AppTheme.textMain,
-                                    letterSpacing: -0.5,
-                                  ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Estoque',
+                                      style: TextStyle(
+                                        fontSize: isWide ? 24 : 22,
+                                        fontWeight: FontWeight.w900,
+                                        color: AppTheme.textMain,
+                                        letterSpacing: -0.5,
+                                      ),
+                                    ),
+                                    Text(
+                                      '$inStockCount ${inStockCount == 1 ? "veículo ativo" : "veículos ativos"}',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: AppTheme.textMuted,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                Text(
-                                  '$inStockCount ${inStockCount == 1 ? "veículo ativo" : "veículos ativos"}',
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: AppTheme.textMuted,
-                                    fontWeight: FontWeight.w500,
+                                if (isWide)
+                                  ElevatedButton.icon(
+                                    icon: const Icon(Icons.add_circle_outline, size: 20),
+                                    label: const Text(
+                                      'Cadastrar veículo',
+                                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primaryDark,
+                                      foregroundColor: Colors.white,
+                                      minimumSize: const Size(180, 44),
+                                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    onPressed: _openNewVehicleForm,
                                   ),
-                                ),
                               ],
                             ),
+                            const SizedBox(height: 12),
+
+                            if (isWide)
+                              Row(
+                                children: [
+                                  Expanded(child: _buildSearchField()),
+                                  const SizedBox(width: 14),
+                                  SizedBox(
+                                    width: 380,
+                                    child: _buildSegmentedFilter(
+                                      inStockCount,
+                                      soldCount,
+                                      allVehicles.length,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            else ...[
+                              _buildSearchField(),
+                              const SizedBox(height: 12),
+                              _buildSegmentedFilter(
+                                inStockCount,
+                                soldCount,
+                                allVehicles.length,
+                              ),
+                            ],
                           ],
                         ),
-                        const SizedBox(height: 12),
-
-                        // Campo de Busca
-                        TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            hintText: 'Buscar por placa, modelo ou marca...',
-                            prefixIcon: const Icon(Icons.search, size: 22, color: AppTheme.textMuted),
-                            suffixIcon: _searchQuery.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear, size: 18),
-                                    onPressed: () {
-                                      setState(() {
-                                        _searchController.clear();
-                                        _searchQuery = '';
-                                      });
-                                    },
-                                  )
-                                : null,
-                            filled: true,
-                            fillColor: const Color(0xFFF1F5F9),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide.none,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                          onChanged: (val) {
-                            setState(() {
-                              _searchQuery = val;
-                            });
-                          },
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Filtros de seleção rápida estilo iOS Segmented Control
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE2E8F0),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              _buildFilterTab('in_stock', 'Em estoque', inStockCount),
-                              _buildFilterTab('sold', 'Vendidos', soldCount),
-                              _buildFilterTab('all', 'Todos', allVehicles.length),
-                            ],
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
 
-                    // Lista de veículos
-                    Expanded(
-                      child: vSnapshot.connectionState == ConnectionState.waiting
-                          ? const Center(child: CircularProgressIndicator())
-                          : filtered.isEmpty
-                              ? _buildEmptyState()
-                              : ListView.builder(
-                                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
-                                  itemCount: filtered.length,
-                                  itemBuilder: (context, index) {
-                                    final vehicle = filtered[index];
-                                    final totalCost = FinancialCalculator.calculateVehicleTotalCost(vehicle, allExpenses);
-                                    final estimatedProfit = FinancialCalculator.calculateEstimatedProfit(vehicle, allExpenses);
-                                    final realizedProfit = FinancialCalculator.calculateRealizedProfit(vehicle, allExpenses);
+                  // Lista / Grid de veículos
+                  Expanded(
+                    child: vSnapshot.connectionState == ConnectionState.waiting
+                        ? const Center(child: CircularProgressIndicator())
+                        : filtered.isEmpty
+                            ? _buildEmptyState()
+                            : isWide
+                                ? _buildDesktopGrid(filtered, allExpenses)
+                                : ListView.builder(
+                                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+                                    itemCount: filtered.length,
+                                    itemBuilder: (context, index) {
+                                      final vehicle = filtered[index];
+                                      final totalCost = FinancialCalculator.calculateVehicleTotalCost(vehicle, allExpenses);
+                                      final estimatedProfit = FinancialCalculator.calculateEstimatedProfit(vehicle, allExpenses);
+                                      final realizedProfit = FinancialCalculator.calculateRealizedProfit(vehicle, allExpenses);
 
-                                    return _buildVehicleCard(
-                                      vehicle: vehicle,
-                                      totalCost: totalCost,
-                                      estimatedProfit: estimatedProfit,
-                                      realizedProfit: realizedProfit,
-                                    );
-                                  },
-                                ),
-                    ),
-                  ],
-                ),
-              floatingActionButton: FloatingActionButton.extended(
-                backgroundColor: AppTheme.primaryDark,
-                foregroundColor: Colors.white,
-                elevation: 3,
-                icon: const Icon(Icons.add_circle_outline, size: 22),
-                label: const Text(
-                  'Cadastrar veículo',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                ),
-                onPressed: () async {
-                  final newVehicleId = await Navigator.of(context).push<String>(
-                    MaterialPageRoute(
-                      builder: (_) => VehicleFormScreen(
-                        workspaceId: widget.workspaceId,
-                        userUid: widget.userUid,
-                        userEmail: widget.userEmail,
-                        vehicleRepository: widget.vehicleRepository,
-                      ),
-                    ),
-                  );
-
-                  if (!context.mounted) return;
-
-                  if (newVehicleId != null) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => VehicleDetailScreen(
-                          workspaceId: widget.workspaceId,
-                          vehicleId: newVehicleId,
-                          userUid: widget.userUid,
-                          userEmail: widget.userEmail,
-                          vehicleRepository: widget.vehicleRepository,
-                          expenseRepository: widget.expenseRepository,
-                        ),
-                      ),
-                    );
-                  }
-                },
+                                      return _buildVehicleCard(
+                                        vehicle: vehicle,
+                                        totalCost: totalCost,
+                                        estimatedProfit: estimatedProfit,
+                                        realizedProfit: realizedProfit,
+                                      );
+                                    },
+                                  ),
+                  ),
+                ],
               ),
+              floatingActionButton: isWide
+                  ? null
+                  : FloatingActionButton.extended(
+                      backgroundColor: AppTheme.primaryDark,
+                      foregroundColor: Colors.white,
+                      elevation: 3,
+                      icon: const Icon(Icons.add_circle_outline, size: 22),
+                      label: const Text(
+                        'Cadastrar veículo',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      ),
+                      onPressed: _openNewVehicleForm,
+                    ),
             );
           },
         );
       },
+    );
+  }
+
+  Widget _buildDesktopGrid(List<Vehicle> filtered, List<Expense> allExpenses) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: ResponsiveBreakpoints.maxContentWidth + 48),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth >= 1120 ? 3 : 2;
+            final rowCount = (filtered.length / columns).ceil();
+
+            return ListView.builder(
+              padding: const EdgeInsets.fromLTRB(24, 18, 24, 32),
+              itemCount: rowCount,
+              itemBuilder: (context, rowIndex) {
+                final startIndex = rowIndex * columns;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: List.generate(columns, (colIndex) {
+                        final itemIndex = startIndex + colIndex;
+                        final Widget child;
+                        if (itemIndex < filtered.length) {
+                          final vehicle = filtered[itemIndex];
+                          final totalCost = FinancialCalculator.calculateVehicleTotalCost(vehicle, allExpenses);
+                          final estimatedProfit = FinancialCalculator.calculateEstimatedProfit(vehicle, allExpenses);
+                          final realizedProfit = FinancialCalculator.calculateRealizedProfit(vehicle, allExpenses);
+
+                          child = _buildVehicleCard(
+                            vehicle: vehicle,
+                            totalCost: totalCost,
+                            estimatedProfit: estimatedProfit,
+                            realizedProfit: realizedProfit,
+                            inGrid: true,
+                          );
+                        } else {
+                          child = const SizedBox.shrink();
+                        }
+
+                        return Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.only(right: colIndex < columns - 1 ? 14 : 0),
+                            child: child,
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -329,9 +451,10 @@ class _StockScreenState extends State<StockScreen> {
     required int totalCost,
     required int? estimatedProfit,
     required int? realizedProfit,
+    bool inGrid = false,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: inGrid ? EdgeInsets.zero : const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -366,58 +489,76 @@ class _StockScreenState extends State<StockScreen> {
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment:
+                  inGrid ? MainAxisAlignment.spaceBetween : MainAxisAlignment.start,
               children: [
-                // Top row: Real Car Plate + Badges
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CarPlateWidget(plate: vehicle.plate, fontSize: 14),
-                    const Spacer(),
-                    StatusBadge.stockStatus(vehicle.isInStock),
-                    if (vehicle.docStatus == AppConstants.docStatusWithIssue) ...[
-                      const SizedBox(width: 6),
-                      StatusBadge.docStatus(vehicle.docStatus),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Title and Version
-                Text(
-                  vehicle.title,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.textMain,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 4),
-
-                // Years + User who registered
-                Row(
-                  children: [
-                    if (vehicle.manufactureYear != null || vehicle.modelYear != null) ...[
-                      Text(
-                        'Ano: ${vehicle.manufactureYear ?? "-"}/${vehicle.modelYear ?? "-"}',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textMuted, fontWeight: FontWeight.w500),
-                      ),
-                      const Text(' • ', style: TextStyle(color: AppTheme.textLight)),
-                    ],
-                    const Icon(Icons.person_outline, size: 13, color: AppTheme.textLight),
-                    const SizedBox(width: 3),
-                    Flexible(
-                      child: Text(
-                        vehicle.createdByEmail != null && vehicle.createdByEmail!.isNotEmpty
-                            ? vehicle.createdByEmail!
-                            : 'Cadastrado',
-                        style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                        overflow: TextOverflow.ellipsis,
+                    // Top row: Real Car Plate + Badges
+                    SizedBox(
+                      width: double.infinity,
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          CarPlateWidget(plate: vehicle.plate, fontSize: 14),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              StatusBadge.stockStatus(vehicle.isInStock),
+                              if (vehicle.docStatus == AppConstants.docStatusWithIssue)
+                                StatusBadge.docStatus(vehicle.docStatus),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
+                    const SizedBox(height: 12),
+
+                    // Title and Version
+                    Text(
+                      vehicle.title,
+                      maxLines: inGrid ? 2 : null,
+                      overflow: inGrid ? TextOverflow.ellipsis : null,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textMain,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+
+                    // Years + User who registered
+                    Row(
+                      children: [
+                        if (vehicle.manufactureYear != null || vehicle.modelYear != null) ...[
+                          Text(
+                            'Ano: ${vehicle.manufactureYear ?? "-"}/${vehicle.modelYear ?? "-"}',
+                            style: const TextStyle(fontSize: 12, color: AppTheme.textMuted, fontWeight: FontWeight.w500),
+                          ),
+                          const Text(' • ', style: TextStyle(color: AppTheme.textLight)),
+                        ],
+                        const Icon(Icons.person_outline, size: 13, color: AppTheme.textLight),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            vehicle.createdByEmail != null && vehicle.createdByEmail!.isNotEmpty
+                                ? vehicle.createdByEmail!
+                                : 'Cadastrado',
+                            style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
                   ],
                 ),
-                const SizedBox(height: 14),
 
                 // Financial Summary Cards
                 if (vehicle.isInStock) ...[
@@ -431,39 +572,54 @@ class _StockScreenState extends State<StockScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Total Investido', style: TextStyle(fontSize: 11, color: AppTheme.textMuted, fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 2),
-                            Text(
-                              Formatters.formatCurrency(totalCost),
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.primaryDark),
-                            ),
-                          ],
-                        ),
-                        if (vehicle.announcedPriceCents != null && estimatedProfit != null) ...[
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                        Flexible(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                estimatedProfit < 0 ? 'Prejuízo Previsto' : 'Lucro Previsto',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: estimatedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
+                              const Text('Total Investido', style: TextStyle(fontSize: 11, color: AppTheme.textMuted, fontWeight: FontWeight.w600)),
                               const SizedBox(height: 2),
-                              Text(
-                                '${estimatedProfit < 0 ? "-" : "+"}${Formatters.formatCurrency(estimatedProfit.abs())}',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                  color: estimatedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  Formatters.formatCurrency(totalCost),
+                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.primaryDark),
                                 ),
                               ),
                             ],
+                          ),
+                        ),
+                        if (vehicle.announcedPriceCents != null && estimatedProfit != null) ...[
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  estimatedProfit < 0 ? 'Prejuízo Previsto' : 'Lucro Previsto',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: estimatedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerRight,
+                                  child: Text(
+                                    '${estimatedProfit < 0 ? "-" : "+"}${Formatters.formatCurrency(estimatedProfit.abs())}',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800,
+                                      color: estimatedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ],
