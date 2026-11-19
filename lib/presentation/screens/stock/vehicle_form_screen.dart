@@ -4,10 +4,12 @@ import '../../../core/constants.dart';
 import '../../../core/formatters.dart';
 import '../../../core/validators.dart';
 import '../../../data/repositories/vehicle_repository.dart';
+import '../../../data/services/fipe_service.dart';
 import '../../../domain/models/vehicle.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/currency_text_field.dart';
 import '../../widgets/date_picker_field.dart';
+import '../../widgets/searchable_select_field.dart';
 
 class VehicleFormScreen extends StatefulWidget {
   final String workspaceId;
@@ -15,6 +17,7 @@ class VehicleFormScreen extends StatefulWidget {
   final String? userEmail;
   final VehicleRepository vehicleRepository;
   final Vehicle? vehicleToEdit;
+  final FipeService? fipeService;
 
   const VehicleFormScreen({
     super.key,
@@ -23,6 +26,7 @@ class VehicleFormScreen extends StatefulWidget {
     this.userEmail,
     required this.vehicleRepository,
     this.vehicleToEdit,
+    this.fipeService,
   });
 
   @override
@@ -55,12 +59,29 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
   String? _duplicateWarning;
   String? _saveError;
 
+  // FIPE
+  late final FipeService _fipeService;
+  late final bool _ownsFipeService;
+  List<FipeBrand> _allFipeBrands = [];
+  List<FipeBrand> _commonFipeBrands = [];
+  List<FipeModelGroup> _fipeModels = [];
+  bool _loadingBrands = false;
+  bool _loadingModels = false;
+  bool _fipeError = false;
+  FipeBrand? _selectedBrand;
+  FipeModelGroup? _selectedModel;
+  bool _brandOther = false;
+  bool _modelOther = false;
+  bool _versionOther = false;
+
   bool get isEditing => widget.vehicleToEdit != null;
 
   @override
   void initState() {
     super.initState();
     final v = widget.vehicleToEdit;
+    _ownsFipeService = widget.fipeService == null;
+    _fipeService = widget.fipeService ?? FipeService();
 
     _brandController = TextEditingController(text: v?.brand ?? '');
     _modelController = TextEditingController(text: v?.model ?? '');
@@ -79,10 +100,21 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
     _purchasePriceCents = v?.purchasePriceCents ?? 0;
     _announcedPriceCents = v?.announcedPriceCents;
     _docStatus = v?.docStatus ?? AppConstants.docStatusPendingCheck;
+
+    if (isEditing) {
+      _brandOther = true;
+      _modelOther = true;
+      _versionOther = true;
+    }
+
+    _loadFipeBrands();
   }
 
   @override
   void dispose() {
+    if (_ownsFipeService) {
+      _fipeService.dispose();
+    }
     _brandController.dispose();
     _modelController.dispose();
     _versionController.dispose();
@@ -95,6 +127,211 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
     _crvNumberController.dispose();
     _docNotesController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadFipeBrands() async {
+    setState(() {
+      _loadingBrands = true;
+      _fipeError = false;
+    });
+
+    try {
+      final brands = await _fipeService.getBrands();
+      if (!mounted) return;
+
+      FipeBrand? matchedBrand;
+      if (isEditing && _brandController.text.trim().isNotEmpty) {
+        final target = _brandController.text.trim().toLowerCase();
+        for (final b in brands) {
+          if (b.name.toLowerCase() == target || b.rawName.toLowerCase() == target) {
+            matchedBrand = b;
+            break;
+          }
+        }
+      }
+
+      final common = FipeService.filterCommonBrands(brands);
+
+      setState(() {
+        _allFipeBrands = brands;
+        _commonFipeBrands = common.isNotEmpty ? common : brands;
+        _loadingBrands = false;
+        if (matchedBrand != null) {
+          _selectedBrand = matchedBrand;
+          _brandOther = false;
+        }
+      });
+
+      if (matchedBrand != null) {
+        await _loadFipeModels(matchedBrand.code, preserveExisting: true);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingBrands = false;
+        _fipeError = true;
+        _brandOther = true;
+        _modelOther = true;
+        _versionOther = true;
+      });
+    }
+  }
+
+  Future<void> _loadFipeModels(String brandCode, {bool preserveExisting = false}) async {
+    setState(() {
+      _loadingModels = true;
+      _fipeError = false;
+    });
+
+    try {
+      final models = await _fipeService.getModelsByBrand(brandCode);
+      if (!mounted) return;
+
+      FipeModelGroup? matchedModel;
+      bool versionMatched = false;
+
+      if (preserveExisting && _modelController.text.trim().isNotEmpty) {
+        final targetModel = _modelController.text.trim().toLowerCase();
+        for (final m in models) {
+          if (m.baseModel.toLowerCase() == targetModel) {
+            matchedModel = m;
+            break;
+          }
+        }
+
+        if (matchedModel != null) {
+          final targetVersion = _versionController.text.trim().toLowerCase();
+          if (targetVersion.isEmpty) {
+            versionMatched = matchedModel.versions.isNotEmpty;
+          } else {
+            versionMatched = matchedModel.versions.any((v) => v.toLowerCase() == targetVersion);
+          }
+        }
+      }
+
+      setState(() {
+        _fipeModels = models;
+        _loadingModels = false;
+        if (preserveExisting) {
+          if (matchedModel != null) {
+            _selectedModel = matchedModel;
+            _modelOther = false;
+            _versionOther = !versionMatched;
+          } else {
+            _modelOther = true;
+            _versionOther = true;
+          }
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingModels = false;
+        _fipeError = true;
+        _modelOther = true;
+        _versionOther = true;
+      });
+    }
+  }
+
+  void _onBrandSelected(String brandName) {
+    final brand = _allFipeBrands.firstWhere((b) => b.name == brandName);
+    setState(() {
+      _selectedBrand = brand;
+      _brandOther = false;
+      _brandController.text = brand.name;
+
+      _selectedModel = null;
+      _fipeModels = [];
+      _modelOther = false;
+      _versionOther = false;
+      _modelController.clear();
+      _versionController.clear();
+    });
+    _loadFipeModels(brand.code);
+  }
+
+  void _onBrandOtherSelected() {
+    setState(() {
+      _selectedBrand = null;
+      _selectedModel = null;
+      _fipeModels = [];
+      _brandOther = true;
+      _modelOther = true;
+      _versionOther = true;
+      _brandController.clear();
+      _modelController.clear();
+      _versionController.clear();
+    });
+  }
+
+  void _onBrandSwitchToSelect() {
+    setState(() {
+      _brandOther = false;
+      _modelOther = false;
+      _versionOther = false;
+      _selectedBrand = null;
+      _selectedModel = null;
+      _fipeModels = [];
+      _brandController.clear();
+      _modelController.clear();
+      _versionController.clear();
+    });
+    if (_allFipeBrands.isEmpty) {
+      _loadFipeBrands();
+    }
+  }
+
+  void _onModelSelected(String modelName) {
+    final group = _fipeModels.firstWhere((m) => m.baseModel == modelName);
+    setState(() {
+      _selectedModel = group;
+      _modelOther = false;
+      _modelController.text = group.baseModel;
+      _versionController.clear();
+      _versionOther = group.versions.isEmpty;
+    });
+  }
+
+  void _onModelOtherSelected() {
+    setState(() {
+      _selectedModel = null;
+      _modelOther = true;
+      _versionOther = true;
+      _modelController.clear();
+      _versionController.clear();
+    });
+  }
+
+  void _onModelSwitchToSelect() {
+    setState(() {
+      _modelOther = false;
+      _versionOther = false;
+      _selectedModel = null;
+      _modelController.clear();
+      _versionController.clear();
+    });
+  }
+
+  void _onVersionSelected(String version) {
+    setState(() {
+      _versionOther = false;
+      _versionController.text = version;
+    });
+  }
+
+  void _onVersionOtherSelected() {
+    setState(() {
+      _versionOther = true;
+      _versionController.clear();
+    });
+  }
+
+  void _onVersionSwitchToSelect() {
+    setState(() {
+      _versionOther = false;
+      _versionController.clear();
+    });
   }
 
   Future<void> _checkDuplicate() async {
@@ -266,86 +503,113 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Identificação do Veículo',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textMain,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-
                             Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _brandController,
-                                    textCapitalization: TextCapitalization.words,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Marca *',
-                                      hintText: 'Ex: Volkswagen',
-                                    ),
-                                    validator: (val) => val == null || val.trim().isEmpty
-                                        ? 'Informe a marca'
-                                        : null,
+                                const Text(
+                                  'Identificação do Veículo',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.textMain,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _modelController,
-                                    textCapitalization: TextCapitalization.words,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Modelo *',
-                                      hintText: 'Ex: Gol',
-                                    ),
-                                    validator: (val) => val == null || val.trim().isEmpty
-                                        ? 'Informe o modelo'
-                                        : null,
+                                if (_fipeError)
+                                  TextButton.icon(
+                                    onPressed: _loadFipeBrands,
+                                    icon: const Icon(Icons.refresh, size: 16),
+                                    label: const Text('Recarregar FIPE', style: TextStyle(fontSize: 12)),
                                   ),
-                                ),
                               ],
+                            ),
+                            const SizedBox(height: 12),
+
+                            SearchableSelectField(
+                              label: 'Marca *',
+                              hintText: 'Selecione a marca',
+                              manualHintText: 'Ex: Volkswagen',
+                              options: _commonFipeBrands.map((b) => b.name).toList(),
+                              allOptions: _allFipeBrands.map((b) => b.name).toList(),
+                              selectedValue: _selectedBrand?.name,
+                              isOtherMode: _brandOther,
+                              canSwitchToSelect: _allFipeBrands.isNotEmpty && !_fipeError,
+                              manualController: _brandController,
+                              isLoading: _loadingBrands,
+                              onOptionSelected: _onBrandSelected,
+                              onOtherSelected: _onBrandOtherSelected,
+                              onSwitchToSelect: _onBrandSwitchToSelect,
+                              validator: (val) => val == null || val.trim().isEmpty
+                                  ? 'Informe a marca'
+                                  : null,
                             ),
                             const SizedBox(height: 14),
 
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _plateController,
-                                    textCapitalization: TextCapitalization.characters,
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\-]')),
-                                      LengthLimitingTextInputFormatter(8),
-                                    ],
-                                    decoration: const InputDecoration(
-                                      labelText: 'Placa *',
-                                      hintText: 'ABC1234 ou BRA2E19',
-                                    ),
-                                    onChanged: (_) => _checkDuplicate(),
-                                    validator: (val) {
-                                      if (val == null || val.trim().isEmpty) {
-                                        return 'Informe a placa';
-                                      }
-                                      if (!Validators.isValidPlate(val)) {
-                                        return 'Placa inválida (padrão antigo ou Mercosul)';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _versionController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Versão',
-                                      hintText: 'Ex: 1.6 MSI Flex',
-                                    ),
-                                  ),
-                                ),
+                            SearchableSelectField(
+                              label: 'Modelo *',
+                              hintText: _selectedBrand == null && !_brandOther
+                                  ? 'Selecione a marca antes'
+                                  : 'Selecione o modelo',
+                              manualHintText: 'Ex: Gol',
+                              options: _fipeModels.map((m) => m.baseModel).toList(),
+                              selectedValue: _selectedModel?.baseModel,
+                              isOtherMode: _modelOther,
+                              canSwitchToSelect:
+                                  _selectedBrand != null && _fipeModels.isNotEmpty && !_fipeError,
+                              manualController: _modelController,
+                              isLoading: _loadingModels,
+                              enabled: _brandOther || _selectedBrand != null,
+                              onOptionSelected: _onModelSelected,
+                              onOtherSelected: _onModelOtherSelected,
+                              onSwitchToSelect: _onModelSwitchToSelect,
+                              validator: (val) => val == null || val.trim().isEmpty
+                                  ? 'Informe o modelo'
+                                  : null,
+                            ),
+                            const SizedBox(height: 14),
+
+                            SearchableSelectField(
+                              label: 'Versão',
+                              hintText: _selectedModel == null && !_modelOther
+                                  ? 'Selecione o modelo antes'
+                                  : 'Selecione a versão',
+                              manualHintText: 'Ex: 1.6 MSI Flex',
+                              options: _selectedModel?.versions ?? const [],
+                              selectedValue: _versionController.text.isNotEmpty
+                                  ? _versionController.text
+                                  : null,
+                              isOtherMode: _versionOther,
+                              canSwitchToSelect: _selectedModel != null &&
+                                  _selectedModel!.versions.isNotEmpty &&
+                                  !_fipeError,
+                              manualController: _versionController,
+                              enabled: _modelOther || _selectedModel != null,
+                              onOptionSelected: _onVersionSelected,
+                              onOtherSelected: _onVersionOtherSelected,
+                              onSwitchToSelect: _onVersionSwitchToSelect,
+                            ),
+                            const SizedBox(height: 14),
+
+                            TextFormField(
+                              controller: _plateController,
+                              textCapitalization: TextCapitalization.characters,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\-]')),
+                                LengthLimitingTextInputFormatter(8),
                               ],
+                              decoration: const InputDecoration(
+                                labelText: 'Placa *',
+                                hintText: 'ABC1234 ou BRA2E19',
+                              ),
+                              onChanged: (_) => _checkDuplicate(),
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return 'Informe a placa';
+                                }
+                                if (!Validators.isValidPlate(val)) {
+                                  return 'Placa inválida (padrão antigo ou Mercosul)';
+                                }
+                                return null;
+                              },
                             ),
                           ],
                         ),
@@ -429,46 +693,60 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
                             ),
                             const SizedBox(height: 16),
 
-                            Row(
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: TextFormField(
-                                    controller: _renavamController,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.digitsOnly,
-                                      LengthLimitingTextInputFormatter(11),
-                                    ],
-                                    decoration: const InputDecoration(
-                                      labelText: 'Código RENAVAM',
-                                      hintText: '11 dígitos',
-                                    ),
-                                    onChanged: (_) => _checkDuplicate(),
-                                    validator: (val) {
-                                      if (!Validators.isValidRenavam(val)) {
-                                        return 'O RENAVAM deve conter 11 dígitos.';
-                                      }
-                                      return null;
-                                    },
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final renavamField = TextFormField(
+                                  controller: _renavamController,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(11),
+                                  ],
+                                  decoration: const InputDecoration(
+                                    labelText: 'Código RENAVAM',
+                                    hintText: '11 dígitos',
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextFormField(
-                                    controller: _licensingYearController,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.digitsOnly,
-                                      LengthLimitingTextInputFormatter(4),
-                                    ],
-                                    decoration: const InputDecoration(
-                                      labelText: 'Exercício',
-                                      hintText: 'Ex: 2026',
-                                    ),
+                                  onChanged: (_) => _checkDuplicate(),
+                                  validator: (val) {
+                                    if (!Validators.isValidRenavam(val)) {
+                                      return 'O RENAVAM deve conter 11 dígitos.';
+                                    }
+                                    return null;
+                                  },
+                                );
+
+                                final licensingField = TextFormField(
+                                  controller: _licensingYearController,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(4),
+                                  ],
+                                  decoration: const InputDecoration(
+                                    labelText: 'Exercício',
+                                    hintText: 'Ex: 2026',
                                   ),
-                                ),
-                              ],
+                                );
+
+                                if (constraints.maxWidth < 460) {
+                                  return Column(
+                                    children: [
+                                      renavamField,
+                                      const SizedBox(height: 14),
+                                      licensingField,
+                                    ],
+                                  );
+                                }
+
+                                return Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(flex: 2, child: renavamField),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: licensingField),
+                                  ],
+                                );
+                              },
                             ),
                             const SizedBox(height: 14),
 
