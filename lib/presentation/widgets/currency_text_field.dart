@@ -1,5 +1,95 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import '../../core/formatters.dart';
+
+/// Máscara de entrada para valores monetários em Real (BRL) com preenchimento
+/// da direita para a esquerda em centavos (ex: "9500000" -> "95.000,00").
+class CurrencyInputFormatter extends TextInputFormatter {
+  final int maxDigits;
+
+  CurrencyInputFormatter({this.maxDigits = 12});
+
+  static final NumberFormat _decimalFormat = NumberFormat('#,##0.00', 'pt_BR');
+
+  /// Formata centavos inteiros para exibição no campo sem prefixo "R$" (ex: "95.000,00").
+  static String formatCents(int cents) {
+    if (cents <= 0) return '';
+    return _decimalFormat.format(cents / 100.0);
+  }
+
+  static const _emptyValue = TextEditingValue(
+    text: '',
+    selection: TextSelection.collapsed(offset: 0),
+  );
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) {
+      return _emptyValue;
+    }
+
+    final oldDigits = oldValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length > maxDigits) {
+      if (oldDigits.length >= maxDigits && digits.length > oldDigits.length) {
+        return oldValue;
+      }
+      final truncated = digits.substring(0, maxDigits);
+      final cents = int.tryParse(truncated) ?? 0;
+      if (cents <= 0) return _emptyValue;
+      final formatted = formatCents(cents);
+      return TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
+    }
+
+    final cents = int.tryParse(digits) ?? 0;
+    if (cents <= 0) {
+      return _emptyValue;
+    }
+
+    final formatted = formatCents(cents);
+    final cursorOffset = _calculateCursorOffset(newValue, formatted);
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: cursorOffset),
+    );
+  }
+
+  int _calculateCursorOffset(TextEditingValue newValue, String formatted) {
+    final selection = newValue.selection;
+    if (!selection.isValid || selection.extentOffset < 0) {
+      return formatted.length;
+    }
+
+    final extent = selection.extentOffset.clamp(0, newValue.text.length);
+    final textAfterCursor = newValue.text.substring(extent);
+    final digitsAfterCursor = textAfterCursor.replaceAll(RegExp(r'[^0-9]'), '').length;
+
+    if (digitsAfterCursor == 0) {
+      return formatted.length;
+    }
+
+    int digitCount = 0;
+    for (int i = formatted.length - 1; i >= 0; i--) {
+      final code = formatted.codeUnitAt(i);
+      if (code >= 48 && code <= 57) {
+        digitCount++;
+        if (digitCount == digitsAfterCursor) {
+          return i;
+        }
+      }
+    }
+
+    return 0;
+  }
+}
 
 class CurrencyTextField extends StatefulWidget {
   final String label;
@@ -30,7 +120,7 @@ class _CurrencyTextFieldState extends State<CurrencyTextField> {
   void initState() {
     super.initState();
     final initialStr = widget.initialValueCents != null && widget.initialValueCents! > 0
-        ? Formatters.formatCurrency(widget.initialValueCents!).replaceAll('R\$', '').trim()
+        ? CurrencyInputFormatter.formatCents(widget.initialValueCents!)
         : '';
     _controller = TextEditingController(text: initialStr);
   }
@@ -40,11 +130,14 @@ class _CurrencyTextFieldState extends State<CurrencyTextField> {
     super.didUpdateWidget(oldWidget);
     if (widget.initialValueCents != oldWidget.initialValueCents) {
       final currentCents = Formatters.parseCurrencyToCents(_controller.text);
-      if (widget.initialValueCents != currentCents) {
+      if ((widget.initialValueCents ?? 0) != currentCents) {
         final initialStr = widget.initialValueCents != null && widget.initialValueCents! > 0
-            ? Formatters.formatCurrency(widget.initialValueCents!).replaceAll('R\$', '').trim()
+            ? CurrencyInputFormatter.formatCents(widget.initialValueCents!)
             : '';
-        _controller.text = initialStr;
+        _controller.value = TextEditingValue(
+          text: initialStr,
+          selection: TextSelection.collapsed(offset: initialStr.length),
+        );
       }
     }
   }
@@ -64,7 +157,8 @@ class _CurrencyTextFieldState extends State<CurrencyTextField> {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: _controller,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      keyboardType: TextInputType.number,
+      inputFormatters: [CurrencyInputFormatter()],
       decoration: InputDecoration(
         labelText: widget.label,
         prefixText: 'R\$ ',
