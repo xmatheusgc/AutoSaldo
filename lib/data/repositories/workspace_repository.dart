@@ -36,8 +36,7 @@ class WorkspaceRepository {
         .collection('members')
         .doc(uid)
         .snapshots()
-        .map((snap) => snap.exists)
-        .handleError((_) => false);
+        .map((snap) => snap.exists);
   }
 
   /// Retorna o nome do espaço de trabalho, se existir

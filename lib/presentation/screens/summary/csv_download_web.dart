@@ -17,6 +17,8 @@ void downloadCsv(String csvContent, String filename) {
   anchor.click();
   anchor.remove();
 
-  web.URL.revokeObjectURL(url);
+  Future<void>.delayed(const Duration(seconds: 1), () {
+    web.URL.revokeObjectURL(url);
+  });
 }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/error_messages.dart';
 import '../../../data/repositories/auth_repository.dart';
 import '../../theme/app_theme.dart';
 
@@ -43,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
+          _errorMessage = ErrorMessages.friendly(e);
         });
       }
     } finally {
@@ -66,7 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
+          _errorMessage = ErrorMessages.friendly(e);
         });
       }
     } finally {
@@ -80,7 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _showPasswordResetDialog() {
     final resetEmailController = TextEditingController(text: _emailController.text);
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (ctx) {
         bool sending = false;
@@ -94,7 +95,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Digite seu e-mail cadastrado para receber o link de redefinição de senha do Firebase:',
+                    'Digite seu e-mail cadastrado para receber o link de redefinição de senha:',
                     style: TextStyle(fontSize: 14, color: AppTheme.textMuted),
                   ),
                   const SizedBox(height: 16),
@@ -152,7 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           } catch (e) {
                             setDialogState(() {
                               sending = false;
-                              resetError = e.toString();
+                              resetError = ErrorMessages.friendly(e);
                             });
                           }
                         },
@@ -170,7 +171,7 @@ class _LoginScreenState extends State<LoginScreen> {
           },
         );
       },
-    );
+    ).whenComplete(resetEmailController.dispose);
   }
 
   @override
@@ -300,6 +301,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             labelText: 'Senha',
                             prefixIcon: const Icon(Icons.lock_outline, size: 20),
                             suffixIcon: IconButton(
+                              tooltip: _obscurePassword ? 'Mostrar senha' : 'Ocultar senha',
                               icon: Icon(
                                 _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
                                 size: 20,
@@ -375,11 +377,23 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         // Botão de Login com Google
                         OutlinedButton.icon(
-                          icon: Image.network(
-                            'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-                            height: 20,
-                            width: 20,
-                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.g_mobiledata, size: 24),
+                          icon: Container(
+                            width: 22,
+                            height: 22,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: AppTheme.accentSoft,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFBFDBFE)),
+                            ),
+                            child: const Text(
+                              'G',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.accentBlue,
+                              ),
+                            ),
                           ),
                           label: const Text('Continuar com Google'),
                           onPressed: _isLoading ? null : _handleGoogleLogin,

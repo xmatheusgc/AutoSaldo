@@ -24,6 +24,11 @@ class CsvExporter {
     buffer.writeln('# Nota: Este extrato destina-se a controle financeiro e importação em planilhas.');
     buffer.writeln('');
 
+    final vehiclesById = <String, Vehicle>{
+      for (final v in vehicles) v.id: v,
+    };
+    final expensesByVehicle = FinancialCalculator.aggregateValidExpensesByVehicle(expenses);
+
     // --- SEÇÃO 1: VEÍCULOS ---
     buffer.writeln('--- 1. VEÍCULOS ---');
     buffer.writeln(
@@ -31,23 +36,24 @@ class CsvExporter {
     );
 
     for (final v in vehicles) {
-      final totalCost = FinancialCalculator.calculateVehicleTotalCost(v, expenses);
+      final totalCost =
+          FinancialCalculator.calculateVehicleTotalCostFromMap(v, expensesByVehicle);
       final profit = v.isSold
-          ? FinancialCalculator.calculateRealizedProfit(v, expenses)
-          : FinancialCalculator.calculateEstimatedProfit(v, expenses);
+          ? FinancialCalculator.calculateRealizedProfitFromMap(v, expensesByVehicle)
+          : FinancialCalculator.calculateEstimatedProfitFromMap(v, expensesByVehicle);
 
       final row = [
-        _escape(v.formattedPlate),
-        _escape(v.brand),
-        _escape(v.model),
-        _escape(v.version ?? ''),
+        _escapeText(v.formattedPlate),
+        _escapeText(v.brand),
+        _escapeText(v.model),
+        _escapeText(v.version ?? ''),
         _escape(v.manufactureYear?.toString() ?? ''),
         _escape(v.modelYear?.toString() ?? ''),
         _escape(v.renavam != null ? '\t${v.renavam}' : ''), // Tab prefix para preservar zeros à esquerda no Excel
         _escape(v.crvNumber != null ? '\t${v.crvNumber}' : ''),
-        _escape(v.docStatusLabel),
-        _escape(v.isInStock ? 'Em estoque' : 'Vendido'),
-        _escape(v.createdByEmail ?? 'Operador'),
+        _escapeText(v.docStatusLabel),
+        _escapeText(v.isInStock ? 'Em estoque' : 'Vendido'),
+        _escapeText(v.createdByEmail ?? 'Operador'),
         _escape(Formatters.formatDate(v.purchaseDate)),
         _escapeCurrency(v.purchasePriceCents),
         _escapeCurrency(v.announcedPriceCents),
@@ -68,21 +74,18 @@ class CsvExporter {
     buffer.writeln('ID;Data Pagamento;Placa Veículo;Veículo;Categoria;Descrição;Valor (R\$);Cadastrado Por;Status');
 
     for (final e in expenses) {
-      final relatedVehicle = vehicles.cast<Vehicle?>().firstWhere(
-            (v) => v?.id == e.vehicleId,
-            orElse: () => null,
-          );
+      final relatedVehicle = vehiclesById[e.vehicleId];
 
       final row = [
-        _escape(e.id),
+        _escapeText(e.id),
         _escape(Formatters.formatDate(e.date)),
-        _escape(relatedVehicle != null ? relatedVehicle.formattedPlate : ''),
-        _escape(relatedVehicle != null ? relatedVehicle.title : ''),
-        _escape(e.categoryLabel),
-        _escape(e.description ?? ''),
+        _escapeText(relatedVehicle != null ? relatedVehicle.formattedPlate : ''),
+        _escapeText(relatedVehicle != null ? relatedVehicle.title : ''),
+        _escapeText(e.categoryLabel),
+        _escapeText(e.description ?? ''),
         _escapeCurrency(e.amountCents),
-        _escape(e.createdByEmail ?? 'Operador'),
-        _escape(e.isValid ? 'Válida' : 'Estornada'),
+        _escapeText(e.createdByEmail ?? 'Operador'),
+        _escapeText(e.isValid ? 'Válida' : 'Estornada'),
       ];
       buffer.writeln(row.join(';'));
     }
@@ -97,12 +100,12 @@ class CsvExporter {
       if (v.activeSale != null) {
         for (final p in v.activeSale!.payments) {
           final row = [
-            _escape(p.id),
+            _escapeText(p.id),
             _escape(Formatters.formatDate(p.date)),
-            _escape(v.formattedPlate),
-            _escape(v.title),
+            _escapeText(v.formattedPlate),
+            _escapeText(v.title),
             _escapeCurrency(p.amountCents),
-            _escape(p.isValid ? 'Válido' : 'Estornado'),
+            _escapeText(p.isValid ? 'Válido' : 'Estornado'),
           ];
           buffer.writeln(row.join(';'));
         }
@@ -110,6 +113,18 @@ class CsvExporter {
     }
 
     return buffer.toString();
+  }
+
+  static String _escapeText(String field) {
+    final trimmed = field.trimLeft();
+    final safe = trimmed.isNotEmpty &&
+            (trimmed.startsWith('=') ||
+                trimmed.startsWith('+') ||
+                trimmed.startsWith('-') ||
+                trimmed.startsWith('@'))
+        ? "'$field"
+        : field;
+    return _escape(safe);
   }
 
   static String _escape(String field) {

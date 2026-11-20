@@ -17,9 +17,10 @@ class CarPlateWidget extends StatelessWidget {
     final isMercosul = RegExp(r'^[A-Z]{3}[0-9][A-Z][0-9]{2}$').hasMatch(clean);
     final displayPlate = Formatters.formatPlate(clean);
 
+    final Widget plateWidget;
     if (isMercosul) {
       // PLACA MERCOSUL: Fundo Branco, Contorno Preto, Faixa Azul no Topo ("BRASIL"), Letras Pretas
-      return Container(
+      plateWidget = Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(6),
@@ -103,7 +104,7 @@ class CarPlateWidget extends StatelessWidget {
       );
     } else {
       // PLACA ANTIGA (CINZA): Fundo Cinza, Contorno Preto, Letras Pretas no formato ABC-1234
-      return Container(
+      plateWidget = Container(
         decoration: BoxDecoration(
           color: const Color(0xFFCBD5E1), // Chapa cinza automotiva
           borderRadius: BorderRadius.circular(6),
@@ -181,6 +182,12 @@ class CarPlateWidget extends StatelessWidget {
         ),
       );
     }
+
+    return Semantics(
+      label: 'Placa $displayPlate',
+      excludeSemantics: true,
+      child: plateWidget,
+    );
   }
 }
 

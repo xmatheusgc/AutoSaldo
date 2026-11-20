@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/constants.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/expense_repository.dart';
 import '../../data/repositories/vehicle_repository.dart';
+import '../../data/services/fipe_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/responsive_layout.dart';
 import 'stock/stock_screen.dart';
@@ -15,6 +17,7 @@ class HomeShell extends StatefulWidget {
   final AuthRepository authRepository;
   final VehicleRepository vehicleRepository;
   final ExpenseRepository expenseRepository;
+  final FipeService? fipeService;
 
   const HomeShell({
     super.key,
@@ -24,6 +27,7 @@ class HomeShell extends StatefulWidget {
     required this.authRepository,
     required this.vehicleRepository,
     required this.expenseRepository,
+    this.fipeService,
   });
 
   @override
@@ -32,6 +36,58 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _currentIndex = 0;
+  late List<Widget> _screens;
+  final FocusNode _stockSearchFocusNode = FocusNode();
+  final ValueNotifier<int> _newVehicleTrigger = ValueNotifier<int>(0);
+
+  @override
+  void initState() {
+    super.initState();
+    _screens = _buildScreens();
+  }
+
+  @override
+  void dispose() {
+    _stockSearchFocusNode.dispose();
+    _newVehicleTrigger.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.workspaceId != widget.workspaceId ||
+        oldWidget.userUid != widget.userUid ||
+        oldWidget.userEmail != widget.userEmail ||
+        oldWidget.vehicleRepository != widget.vehicleRepository ||
+        oldWidget.expenseRepository != widget.expenseRepository ||
+        oldWidget.fipeService != widget.fipeService) {
+      _screens = _buildScreens();
+    }
+  }
+
+  List<Widget> _buildScreens() {
+    return [
+      StockScreen(
+        workspaceId: widget.workspaceId,
+        userUid: widget.userUid,
+        userEmail: widget.userEmail,
+        vehicleRepository: widget.vehicleRepository,
+        expenseRepository: widget.expenseRepository,
+        fipeService: widget.fipeService,
+        searchFocusNode: _stockSearchFocusNode,
+        newVehicleTrigger: _newVehicleTrigger,
+      ),
+      MonthlySummaryScreen(
+        workspaceId: widget.workspaceId,
+        userUid: widget.userUid,
+        userEmail: widget.userEmail,
+        vehicleRepository: widget.vehicleRepository,
+        expenseRepository: widget.expenseRepository,
+        fipeService: widget.fipeService,
+      ),
+    ];
+  }
 
   String get _userInitial =>
       (widget.userEmail != null && widget.userEmail!.isNotEmpty)
@@ -42,7 +98,8 @@ class _HomeShellState extends State<HomeShell> {
     final rawName = (widget.userEmail != null && widget.userEmail!.contains('@'))
         ? widget.userEmail!.split('@')[0]
         : 'Vendedor';
-    final cleanName = RegExp(r'^[a-zA-Z]+').stringMatch(rawName) ?? rawName;
+    final cleanName =
+        RegExp(r'^[\p{L}]+', unicode: true).stringMatch(rawName) ?? rawName;
     return cleanName.isNotEmpty
         ? cleanName[0].toUpperCase() + cleanName.substring(1).toLowerCase()
         : 'Vendedor';
@@ -85,7 +142,7 @@ class _HomeShellState extends State<HomeShell> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Text(
-                  'Workspace: AutoSaldo (Principal)',
+                  'Loja: AutoSaldo (Principal)',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -110,6 +167,27 @@ class _HomeShellState extends State<HomeShell> {
                   ),
                 ),
               ),
+              if (ResponsiveBreakpoints.isTabletOrDesktop(context)) ...[
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.borderSubtle),
+                  ),
+                  child: const Text(
+                    'Atalhos: Ctrl+K buscar • Alt+1 Estoque • Alt+2 Resumo • Alt+N Novo veículo',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textMuted,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 icon: const Icon(Icons.logout, size: 20),
@@ -135,7 +213,7 @@ class _HomeShellState extends State<HomeShell> {
 
   Widget _buildAppHeader() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -148,55 +226,50 @@ class _HomeShellState extends State<HomeShell> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             // Perfil clicável estilo App
-            InkWell(
-              onTap: _showUserModal,
-              borderRadius: BorderRadius.circular(24),
-              child: Row(
-                children: [
-                  Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor: const Color(0xFFEFF6FF),
-                        child: Text(
-                          _userInitial,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF2563EB),
+            Expanded(
+              child: InkWell(
+                onTap: _showUserModal,
+                borderRadius: BorderRadius.circular(24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 44),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundColor: AppTheme.accentSoft,
+                          child: Text(
+                            _userInitial,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.accentBlue,
+                            ),
                           ),
                         ),
-                      ),
-                      Positioned(
-                        right: 0,
-                        bottom: 0,
-                        child: Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF10B981),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
+                        const SizedBox(width: 12),
+                        Flexible(
+                          child: Text(
+                            'Olá, $_userDisplayName',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.textMain,
+                              letterSpacing: -0.4,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Olá, $_userDisplayName',
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF0F172A),
-                      letterSpacing: -0.4,
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
 
-            // Lado direito: menu de 3 pontos
+            // Lado direito: Minha Conta
             IconButton(
               icon: const Icon(Icons.more_horiz_rounded, size: 26, color: Color(0xFF334155)),
               tooltip: 'Minha Conta',
@@ -297,14 +370,17 @@ class _HomeShellState extends State<HomeShell> {
             ),
 
             const Spacer(),
+
             const Divider(height: 1, color: AppTheme.borderSubtle),
 
             // Conta / Usuário no rodapé da barra lateral
             Padding(
               padding: EdgeInsets.all(isExpanded ? 12 : 10),
-              child: InkWell(
-                onTap: _showUserModal,
-                borderRadius: BorderRadius.circular(12),
+              child: Tooltip(
+                message: isExpanded ? '' : 'Minha Conta',
+                child: InkWell(
+                  onTap: _showUserModal,
+                  borderRadius: BorderRadius.circular(12),
                 child: Container(
                   padding: EdgeInsets.symmetric(
                     horizontal: isExpanded ? 10 : 6,
@@ -371,6 +447,7 @@ class _HomeShellState extends State<HomeShell> {
                 ),
               ),
             ),
+            ),
           ],
         ),
       ),
@@ -435,58 +512,75 @@ class _HomeShellState extends State<HomeShell> {
     final isDesktopOrTablet = ResponsiveBreakpoints.isTabletOrDesktop(context);
     final isExpandedSidebar = ResponsiveBreakpoints.isDesktop(context);
 
-    final screens = [
-      StockScreen(
-        workspaceId: widget.workspaceId,
-        userUid: widget.userUid,
-        userEmail: widget.userEmail,
-        vehicleRepository: widget.vehicleRepository,
-        expenseRepository: widget.expenseRepository,
-      ),
-      MonthlySummaryScreen(
-        workspaceId: widget.workspaceId,
-        vehicleRepository: widget.vehicleRepository,
-        expenseRepository: widget.expenseRepository,
-      ),
-    ];
+    final bodyContent = IndexedStack(
+      index: _currentIndex,
+      children: _screens,
+    );
 
-    if (isDesktopOrTablet) {
-      return Scaffold(
-        body: Row(
-          children: [
-            _buildDesktopSidebar(isExpandedSidebar),
-            Expanded(child: screens[_currentIndex]),
-          ],
-        ),
-      );
-    }
+    final scaffold = isDesktopOrTablet
+        ? Scaffold(
+            body: Row(
+              children: [
+                _buildDesktopSidebar(isExpandedSidebar),
+                Expanded(child: bodyContent),
+              ],
+            ),
+          )
+        : Scaffold(
+            body: Column(
+              children: [
+                _buildAppHeader(),
+                Expanded(child: bodyContent),
+              ],
+            ),
+            bottomNavigationBar: NavigationBar(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.directions_car_outlined),
+                  selectedIcon: Icon(Icons.directions_car),
+                  label: 'Estoque',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.bar_chart_outlined),
+                  selectedIcon: Icon(Icons.bar_chart),
+                  label: 'Resumo',
+                ),
+              ],
+            ),
+          );
 
-    return Scaffold(
-      body: Column(
-        children: [
-          _buildAppHeader(),
-          Expanded(child: screens[_currentIndex]),
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _currentIndex = index;
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.digit1, alt: true): () {
+          if (_currentIndex != 0) setState(() => _currentIndex = 0);
+        },
+        const SingleActivator(LogicalKeyboardKey.digit2, alt: true): () {
+          if (_currentIndex != 1) setState(() => _currentIndex = 1);
+        },
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true): () {
+          if (_currentIndex != 0) setState(() => _currentIndex = 0);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_stockSearchFocusNode.canRequestFocus) {
+              _stockSearchFocusNode.requestFocus();
+            }
           });
         },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.directions_car_outlined),
-            selectedIcon: Icon(Icons.directions_car),
-            label: 'Estoque',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
-            label: 'Resumo',
-          ),
-        ],
+        const SingleActivator(LogicalKeyboardKey.keyN, alt: true): () {
+          if (_currentIndex != 0) setState(() => _currentIndex = 0);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _newVehicleTrigger.value++;
+          });
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: scaffold,
       ),
     );
   }

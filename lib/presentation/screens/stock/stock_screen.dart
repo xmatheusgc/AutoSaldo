@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import '../../../core/constants.dart';
 import '../../../core/formatters.dart';
 import '../../../data/repositories/expense_repository.dart';
 import '../../../data/repositories/vehicle_repository.dart';
+import '../../../data/services/fipe_service.dart';
 import '../../../domain/models/expense.dart';
 import '../../../domain/models/vehicle.dart';
 import '../../../domain/services/financial_calculator.dart';
@@ -13,12 +15,17 @@ import '../../widgets/status_badge.dart';
 import 'vehicle_detail_screen.dart';
 import 'vehicle_form_screen.dart';
 
+enum _StockSort { newest, oldestInStock, lowestPrice, highestPrice, highestProfit }
+
 class StockScreen extends StatefulWidget {
   final String workspaceId;
   final String userUid;
   final String? userEmail;
   final VehicleRepository vehicleRepository;
   final ExpenseRepository expenseRepository;
+  final FipeService? fipeService;
+  final FocusNode? searchFocusNode;
+  final ValueListenable<int>? newVehicleTrigger;
 
   const StockScreen({
     super.key,
@@ -27,6 +34,9 @@ class StockScreen extends StatefulWidget {
     this.userEmail,
     required this.vehicleRepository,
     required this.expenseRepository,
+    this.fipeService,
+    this.searchFocusNode,
+    this.newVehicleTrigger,
   });
 
   @override
@@ -37,9 +47,53 @@ class _StockScreenState extends State<StockScreen> {
   final _searchController = TextEditingController();
   String _filter = 'in_stock'; // 'all', 'in_stock', 'sold'
   String _searchQuery = '';
+  bool _onlyDocIssue = false;
+  bool _onlyPendingPayment = false;
+  bool _onlyStagnant = false;
+  _StockSort _sort = _StockSort.newest;
+  late Stream<List<Vehicle>> _vehiclesStream;
+  late Stream<List<Expense>> _expensesStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _initStreams();
+    widget.newVehicleTrigger?.addListener(_onNewVehicleShortcut);
+  }
+
+  void _onNewVehicleShortcut() {
+    if (!mounted) return;
+    _openNewVehicleForm();
+  }
+
+  void _initStreams() {
+    _vehiclesStream = widget.vehicleRepository.getVehiclesStream(widget.workspaceId);
+    _expensesStream = widget.expenseRepository.getExpensesStream(widget.workspaceId);
+  }
+
+  @override
+  void didUpdateWidget(covariant StockScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.newVehicleTrigger != widget.newVehicleTrigger) {
+      oldWidget.newVehicleTrigger?.removeListener(_onNewVehicleShortcut);
+      widget.newVehicleTrigger?.addListener(_onNewVehicleShortcut);
+    }
+    if (oldWidget.workspaceId != widget.workspaceId ||
+        oldWidget.vehicleRepository != widget.vehicleRepository ||
+        oldWidget.expenseRepository != widget.expenseRepository) {
+      _initStreams();
+    }
+  }
+
+  void _retryStreams() {
+    setState(() {
+      _initStreams();
+    });
+  }
 
   @override
   void dispose() {
+    widget.newVehicleTrigger?.removeListener(_onNewVehicleShortcut);
     _searchController.dispose();
     super.dispose();
   }
@@ -52,6 +106,7 @@ class _StockScreenState extends State<StockScreen> {
           userUid: widget.userUid,
           userEmail: widget.userEmail,
           vehicleRepository: widget.vehicleRepository,
+          fipeService: widget.fipeService,
         ),
       ),
     );
@@ -59,6 +114,12 @@ class _StockScreenState extends State<StockScreen> {
     if (!mounted) return;
 
     if (newVehicleId != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veículo cadastrado com sucesso!'),
+          backgroundColor: AppTheme.successGreen,
+        ),
+      );
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => VehicleDetailScreen(
@@ -68,6 +129,7 @@ class _StockScreenState extends State<StockScreen> {
             userEmail: widget.userEmail,
             vehicleRepository: widget.vehicleRepository,
             expenseRepository: widget.expenseRepository,
+            fipeService: widget.fipeService,
           ),
         ),
       );
@@ -77,12 +139,14 @@ class _StockScreenState extends State<StockScreen> {
   Widget _buildSearchField() {
     return TextField(
       controller: _searchController,
+      focusNode: widget.searchFocusNode,
       decoration: InputDecoration(
         hintText: 'Buscar por placa, modelo ou marca...',
         prefixIcon: const Icon(Icons.search, size: 22, color: AppTheme.textMuted),
         suffixIcon: _searchQuery.isNotEmpty
             ? IconButton(
                 icon: const Icon(Icons.clear, size: 18),
+                tooltip: 'Limpar busca',
                 onPressed: () {
                   setState(() {
                     _searchController.clear();
@@ -128,21 +192,235 @@ class _StockScreenState extends State<StockScreen> {
     );
   }
 
+  String _sortLabel(_StockSort sort) {
+    return switch (sort) {
+      _StockSort.newest => 'Mais recentes',
+      _StockSort.oldestInStock => 'Mais antigos',
+      _StockSort.lowestPrice => 'Menor preço',
+      _StockSort.highestPrice => 'Maior preço',
+      _StockSort.highestProfit => 'Maior lucro',
+    };
+  }
+
+  List<Vehicle> _sortVehicles(
+    List<Vehicle> list,
+    Map<String, int> expensesByVehicle,
+  ) {
+    if (_sort == _StockSort.newest) {
+      return list;
+    }
+
+    final sorted = List<Vehicle>.from(list);
+    int priceOf(Vehicle v) {
+      return v.activeSale?.salePriceCents ??
+          v.announcedPriceCents ??
+          v.purchasePriceCents;
+    }
+
+    int profitOf(Vehicle v) {
+      final p = v.isSold
+          ? FinancialCalculator.calculateRealizedProfitFromMap(v, expensesByVehicle)
+          : FinancialCalculator.calculateEstimatedProfitFromMap(v, expensesByVehicle);
+      return p ?? -999999999;
+    }
+
+    sorted.sort((a, b) {
+      switch (_sort) {
+        case _StockSort.newest:
+          return b.purchaseDate.compareTo(a.purchaseDate);
+        case _StockSort.oldestInStock:
+          return a.purchaseDate.compareTo(b.purchaseDate);
+        case _StockSort.lowestPrice:
+          return priceOf(a).compareTo(priceOf(b));
+        case _StockSort.highestPrice:
+          return priceOf(b).compareTo(priceOf(a));
+        case _StockSort.highestProfit:
+          return profitOf(b).compareTo(profitOf(a));
+      }
+    });
+    return sorted;
+  }
+
+  Widget _buildQuickFilterAndSortBar({
+    required int docIssueCount,
+    required int pendingPaymentCount,
+    required int stagnantCount,
+    required List<Vehicle> allVehicles,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          PopupMenuButton<_StockSort>(
+            tooltip: 'Ordenar veículos',
+            initialValue: _sort,
+            onSelected: (selected) {
+              setState(() {
+                _sort = selected;
+              });
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: _StockSort.newest,
+                child: Text('Mais recentes'),
+              ),
+              PopupMenuItem(
+                value: _StockSort.oldestInStock,
+                child: Text('Mais antigos no pátio'),
+              ),
+              PopupMenuItem(
+                value: _StockSort.lowestPrice,
+                child: Text('Menor preço'),
+              ),
+              PopupMenuItem(
+                value: _StockSort.highestPrice,
+                child: Text('Maior preço'),
+              ),
+              PopupMenuItem(
+                value: _StockSort.highestProfit,
+                child: Text('Maior lucro'),
+              ),
+            ],
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 36),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.borderInteractive),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.sort_rounded, size: 16, color: AppTheme.primaryDark),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Ordenar: ${_sortLabel(_sort)}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.primaryDark,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  const Icon(Icons.arrow_drop_down, size: 18, color: AppTheme.primaryDark),
+                ],
+              ),
+            ),
+          ),
+          if (docIssueCount > 0 || _onlyDocIssue)
+            FilterChip(
+              selected: _onlyDocIssue,
+              label: Text(
+                'Doc pendente ($docIssueCount)',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+              selectedColor: AppTheme.warningLight,
+              checkmarkColor: AppTheme.warningOrange,
+              side: BorderSide(
+                color: _onlyDocIssue ? AppTheme.warningBorder : AppTheme.borderInteractive,
+              ),
+              onSelected: (selected) {
+                setState(() {
+                  _onlyDocIssue = selected;
+                  if (selected && _filter == 'in_stock') {
+                    final hasInStockDocIssue = allVehicles.any(
+                      (v) => v.isInStock && v.docStatus == AppConstants.docStatusWithIssue,
+                    );
+                    if (!hasInStockDocIssue) {
+                      _filter = 'all';
+                    }
+                  }
+                });
+              },
+            ),
+          if (pendingPaymentCount > 0 || _onlyPendingPayment)
+            FilterChip(
+              selected: _onlyPendingPayment,
+              label: Text(
+                'Falta receber ($pendingPaymentCount)',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+              selectedColor: AppTheme.warningLight,
+              checkmarkColor: AppTheme.warningOrange,
+              side: BorderSide(
+                color: _onlyPendingPayment
+                    ? AppTheme.warningBorder
+                    : AppTheme.borderInteractive,
+              ),
+              onSelected: (selected) {
+                setState(() {
+                  _onlyPendingPayment = selected;
+                  if (selected) {
+                    _filter = 'sold';
+                    _onlyStagnant = false;
+                  }
+                });
+              },
+            ),
+          if (stagnantCount > 0 || _onlyStagnant)
+            FilterChip(
+              selected: _onlyStagnant,
+              label: Text(
+                '+45d pátio ($stagnantCount)',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+              selectedColor: AppTheme.dangerLight,
+              checkmarkColor: AppTheme.dangerRed,
+              side: BorderSide(
+                color: _onlyStagnant ? AppTheme.dangerBorder : AppTheme.borderInteractive,
+              ),
+              onSelected: (selected) {
+                setState(() {
+                  _onlyStagnant = selected;
+                  if (selected) {
+                    _filter = 'in_stock';
+                    _onlyPendingPayment = false;
+                  }
+                });
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isWide = ResponsiveBreakpoints.isTabletOrDesktop(context);
 
     return StreamBuilder<List<Vehicle>>(
-      stream: widget.vehicleRepository.getVehiclesStream(widget.workspaceId),
+      stream: _vehiclesStream,
       builder: (context, vSnapshot) {
         return StreamBuilder<List<Expense>>(
-          stream: widget.expenseRepository.getExpensesStream(widget.workspaceId),
+          stream: _expensesStream,
           builder: (context, eSnapshot) {
+            final hasStreamError = vSnapshot.hasError || eSnapshot.hasError;
+            final isWaitingInitial =
+                (vSnapshot.connectionState == ConnectionState.waiting && !vSnapshot.hasData) ||
+                    (eSnapshot.connectionState == ConnectionState.waiting && !eSnapshot.hasData);
+
             final allVehicles = vSnapshot.data ?? [];
             final allExpenses = eSnapshot.data ?? [];
+            final expensesByVehicle =
+                FinancialCalculator.aggregateValidExpensesByVehicle(allExpenses);
 
             final inStockCount = allVehicles.where((v) => v.isInStock).length;
             final soldCount = allVehicles.where((v) => v.isSold).length;
+            final docIssueCount = allVehicles
+                .where((v) => v.docStatus == AppConstants.docStatusWithIssue)
+                .length;
+            final pendingPaymentCount = allVehicles
+                .where((v) => v.isSold && (v.activeSale?.balanceDueCents ?? 0) > 0)
+                .length;
+            final stagnantCount = allVehicles.where((v) {
+              if (!v.isInStock) return false;
+              return FinancialCalculator.calculateDaysInStock(v) >=
+                  AppConstants.stagnantStockDaysThreshold;
+            }).length;
 
             // Filtro de status
             var filtered = allVehicles;
@@ -150,6 +428,25 @@ class _StockScreenState extends State<StockScreen> {
               filtered = filtered.where((v) => v.isInStock).toList();
             } else if (_filter == 'sold') {
               filtered = filtered.where((v) => v.isSold).toList();
+            }
+
+            // Filtros rápidos
+            if (_onlyDocIssue) {
+              filtered = filtered
+                  .where((v) => v.docStatus == AppConstants.docStatusWithIssue)
+                  .toList();
+            }
+            if (_onlyPendingPayment) {
+              filtered = filtered
+                  .where((v) => v.isSold && (v.activeSale?.balanceDueCents ?? 0) > 0)
+                  .toList();
+            }
+            if (_onlyStagnant) {
+              filtered = filtered.where((v) {
+                if (!v.isInStock) return false;
+                return FinancialCalculator.calculateDaysInStock(v) >=
+                    AppConstants.stagnantStockDaysThreshold;
+              }).toList();
             }
 
             // Filtro de busca (placa, marca, modelo, renavam)
@@ -165,6 +462,8 @@ class _StockScreenState extends State<StockScreen> {
               }).toList();
             }
 
+            filtered = _sortVehicles(filtered, expensesByVehicle);
+
             return Scaffold(
               backgroundColor: AppTheme.bgSurface,
               body: Column(
@@ -175,7 +474,7 @@ class _StockScreenState extends State<StockScreen> {
                       isWide ? 24 : 16,
                       isWide ? 18 : 14,
                       isWide ? 24 : 16,
-                      isWide ? 18 : 14,
+                      isWide ? 14 : 12,
                     ),
                     decoration: const BoxDecoration(
                       color: Colors.white,
@@ -262,6 +561,13 @@ class _StockScreenState extends State<StockScreen> {
                                 allVehicles.length,
                               ),
                             ],
+                            const SizedBox(height: 10),
+                            _buildQuickFilterAndSortBar(
+                              docIssueCount: docIssueCount,
+                              pendingPaymentCount: pendingPaymentCount,
+                              stagnantCount: stagnantCount,
+                              allVehicles: allVehicles,
+                            ),
                           ],
                         ),
                       ),
@@ -270,29 +576,40 @@ class _StockScreenState extends State<StockScreen> {
 
                   // Lista / Grid de veículos
                   Expanded(
-                    child: vSnapshot.connectionState == ConnectionState.waiting
-                        ? const Center(child: CircularProgressIndicator())
-                        : filtered.isEmpty
-                            ? _buildEmptyState()
-                            : isWide
-                                ? _buildDesktopGrid(filtered, allExpenses)
-                                : ListView.builder(
-                                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
-                                    itemCount: filtered.length,
-                                    itemBuilder: (context, index) {
-                                      final vehicle = filtered[index];
-                                      final totalCost = FinancialCalculator.calculateVehicleTotalCost(vehicle, allExpenses);
-                                      final estimatedProfit = FinancialCalculator.calculateEstimatedProfit(vehicle, allExpenses);
-                                      final realizedProfit = FinancialCalculator.calculateRealizedProfit(vehicle, allExpenses);
+                    child: hasStreamError
+                        ? _buildErrorState()
+                        : isWaitingInitial
+                            ? const Center(child: CircularProgressIndicator())
+                            : filtered.isEmpty
+                                ? _buildEmptyState()
+                                : isWide
+                                    ? _buildDesktopGrid(
+                                        filtered,
+                                        expensesByVehicle,
+                                      )
+                                    : ListView.builder(
+                                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+                                        itemCount: filtered.length,
+                                        itemBuilder: (context, index) {
+                                          final vehicle = filtered[index];
+                                          final totalCost = FinancialCalculator
+                                              .calculateVehicleTotalCostFromMap(
+                                                  vehicle, expensesByVehicle);
+                                          final estimatedProfit = FinancialCalculator
+                                              .calculateEstimatedProfitFromMap(
+                                                  vehicle, expensesByVehicle);
+                                          final realizedProfit = FinancialCalculator
+                                              .calculateRealizedProfitFromMap(
+                                                  vehicle, expensesByVehicle);
 
-                                      return _buildVehicleCard(
-                                        vehicle: vehicle,
-                                        totalCost: totalCost,
-                                        estimatedProfit: estimatedProfit,
-                                        realizedProfit: realizedProfit,
-                                      );
-                                    },
-                                  ),
+                                          return _buildVehicleCard(
+                                            vehicle: vehicle,
+                                            totalCost: totalCost,
+                                            estimatedProfit: estimatedProfit,
+                                            realizedProfit: realizedProfit,
+                                          );
+                                        },
+                                      ),
                   ),
                 ],
               ),
@@ -316,13 +633,16 @@ class _StockScreenState extends State<StockScreen> {
     );
   }
 
-  Widget _buildDesktopGrid(List<Vehicle> filtered, List<Expense> allExpenses) {
+  Widget _buildDesktopGrid(
+    List<Vehicle> filtered,
+    Map<String, int> expensesByVehicle,
+  ) {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: ResponsiveBreakpoints.maxContentWidth + 48),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final columns = constraints.maxWidth >= 1120 ? 3 : 2;
+            final columns = constraints.maxWidth >= ResponsiveBreakpoints.wideGrid ? 3 : 2;
             final rowCount = (filtered.length / columns).ceil();
 
             return ListView.builder(
@@ -340,9 +660,15 @@ class _StockScreenState extends State<StockScreen> {
                         final Widget child;
                         if (itemIndex < filtered.length) {
                           final vehicle = filtered[itemIndex];
-                          final totalCost = FinancialCalculator.calculateVehicleTotalCost(vehicle, allExpenses);
-                          final estimatedProfit = FinancialCalculator.calculateEstimatedProfit(vehicle, allExpenses);
-                          final realizedProfit = FinancialCalculator.calculateRealizedProfit(vehicle, allExpenses);
+                          final totalCost =
+                              FinancialCalculator.calculateVehicleTotalCostFromMap(
+                                  vehicle, expensesByVehicle);
+                          final estimatedProfit =
+                              FinancialCalculator.calculateEstimatedProfitFromMap(
+                                  vehicle, expensesByVehicle);
+                          final realizedProfit =
+                              FinancialCalculator.calculateRealizedProfitFromMap(
+                                  vehicle, expensesByVehicle);
 
                           child = _buildVehicleCard(
                             vehicle: vehicle,
@@ -375,37 +701,89 @@ class _StockScreenState extends State<StockScreen> {
 
   Widget _buildFilterTab(String filterKey, String title, int count) {
     final isSelected = _filter == filterKey;
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
     return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _filter = filterKey;
-          });
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
+      child: Semantics(
+        button: true,
+        selected: isSelected,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
             borderRadius: BorderRadius.circular(9),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(15),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Text(
-            '$title ($count)',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-              color: isSelected ? AppTheme.primaryDark : AppTheme.textMuted,
+            onTap: () {
+              setState(() {
+                _filter = filterKey;
+              });
+            },
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
+              child: AnimatedContainer(
+                duration: disableAnimations
+                    ? Duration.zero
+                    : const Duration(milliseconds: 180),
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(9),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(15),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Text(
+                  '$title ($count)',
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                    color: isSelected ? AppTheme.primaryDark : AppTheme.textMuted,
+                  ),
+                ),
+              ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.cloud_off_outlined, size: 48, color: AppTheme.dangerRed),
+              const SizedBox(height: 16),
+              const Text(
+                'Não foi possível carregar o estoque',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppTheme.textMain),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Verifique sua conexão com a internet e tente novamente.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: AppTheme.textMuted),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('Tentar novamente'),
+                onPressed: _retryStreams,
+              ),
+            ],
           ),
         ),
       ),
@@ -453,6 +831,34 @@ class _StockScreenState extends State<StockScreen> {
     required int? realizedProfit,
     bool inGrid = false,
   }) {
+    final daysInStock = FinancialCalculator.calculateDaysInStock(vehicle);
+    final isCriticalAge = vehicle.isInStock &&
+        daysInStock >= AppConstants.criticalStockDaysThreshold;
+    final isStagnantAge = vehicle.isInStock &&
+        daysInStock >= AppConstants.stagnantStockDaysThreshold;
+
+    final Color ageBg = isCriticalAge
+        ? AppTheme.dangerLight
+        : isStagnantAge
+            ? AppTheme.warningLight
+            : const Color(0xFFF1F5F9);
+    final Color ageBorder = isCriticalAge
+        ? AppTheme.dangerBorder
+        : isStagnantAge
+            ? AppTheme.warningBorder
+            : AppTheme.borderSubtle;
+    final Color ageTextColor = isCriticalAge
+        ? AppTheme.dangerRed
+        : isStagnantAge
+            ? AppTheme.warningOrange
+            : AppTheme.textMuted;
+
+    final double? roiPercent = vehicle.isSold && realizedProfit != null
+        ? FinancialCalculator.calculateRoiPercent(realizedProfit, totalCost)
+        : (vehicle.isInStock && estimatedProfit != null)
+            ? FinancialCalculator.calculateRoiPercent(estimatedProfit, totalCost)
+            : null;
+
     return Container(
       margin: inGrid ? EdgeInsets.zero : const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -480,6 +886,7 @@ class _StockScreenState extends State<StockScreen> {
                   userEmail: widget.userEmail,
                   vehicleRepository: widget.vehicleRepository,
                   expenseRepository: widget.expenseRepository,
+                  fipeService: widget.fipeService,
                 ),
               ),
             );
@@ -531,30 +938,66 @@ class _StockScreenState extends State<StockScreen> {
                         letterSpacing: -0.3,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
 
-                    // Years + User who registered
-                    Row(
-                      children: [
-                        if (vehicle.manufactureYear != null || vehicle.modelYear != null) ...[
-                          Text(
-                            'Ano: ${vehicle.manufactureYear ?? "-"}/${vehicle.modelYear ?? "-"}',
-                            style: const TextStyle(fontSize: 12, color: AppTheme.textMuted, fontWeight: FontWeight.w500),
+                    // Years + Days in stock + User who registered
+                    SizedBox(
+                      width: double.infinity,
+                      child: Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          if (vehicle.manufactureYear != null || vehicle.modelYear != null)
+                            Text(
+                              'Ano: ${vehicle.manufactureYear ?? "-"}/${vehicle.modelYear ?? "-"}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textMuted,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: ageBg,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: ageBorder),
+                            ),
+                            child: Text(
+                              vehicle.isInStock
+                                  ? (daysInStock == 0
+                                      ? 'Entrada hoje'
+                                      : '${daysInStock}d no pátio')
+                                  : 'Vendido em ${Formatters.formatDaysCount(daysInStock)}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: ageTextColor,
+                                fontFeatures: AppTheme.tabularNumbers,
+                              ),
+                            ),
                           ),
-                          const Text(' • ', style: TextStyle(color: AppTheme.textLight)),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.person_outline, size: 13, color: AppTheme.textLight),
+                              const SizedBox(width: 3),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 150),
+                                child: Text(
+                                  vehicle.createdByEmail != null &&
+                                          vehicle.createdByEmail!.isNotEmpty
+                                      ? vehicle.createdByEmail!
+                                      : 'Cadastrado',
+                                  style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
-                        const Icon(Icons.person_outline, size: 13, color: AppTheme.textLight),
-                        const SizedBox(width: 3),
-                        Flexible(
-                          child: Text(
-                            vehicle.createdByEmail != null && vehicle.createdByEmail!.isNotEmpty
-                                ? vehicle.createdByEmail!
-                                : 'Cadastrado',
-                            style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                     const SizedBox(height: 14),
                   ],
@@ -583,7 +1026,12 @@ class _StockScreenState extends State<StockScreen> {
                                 alignment: Alignment.centerLeft,
                                 child: Text(
                                   Formatters.formatCurrency(totalCost),
-                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.primaryDark),
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppTheme.primaryDark,
+                                    fontFeatures: AppTheme.tabularNumbers,
+                                  ),
                                 ),
                               ),
                             ],
@@ -615,9 +1063,22 @@ class _StockScreenState extends State<StockScreen> {
                                       fontSize: 15,
                                       fontWeight: FontWeight.w800,
                                       color: estimatedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
+                                      fontFeatures: AppTheme.tabularNumbers,
                                     ),
                                   ),
                                 ),
+                                if (roiPercent != null)
+                                  Text(
+                                    'ROI ${Formatters.formatPercent(roiPercent)}',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: estimatedProfit < 0
+                                          ? AppTheme.dangerRed
+                                          : AppTheme.successGreen,
+                                      fontFeatures: AppTheme.tabularNumbers,
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
@@ -639,74 +1100,118 @@ class _StockScreenState extends State<StockScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Venda Final', style: TextStyle(fontSize: 11, color: AppTheme.textMuted, fontWeight: FontWeight.w600)),
-                                const SizedBox(height: 2),
-                                Text(
-                                  Formatters.formatCurrency(vehicle.activeSale!.salePriceCents),
-                                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.primaryDark),
-                                ),
-                              ],
+                            Flexible(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Venda Final', style: TextStyle(fontSize: 11, color: AppTheme.textMuted, fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 2),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      Formatters.formatCurrency(vehicle.activeSale!.salePriceCents),
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppTheme.primaryDark,
+                                        fontFeatures: AppTheme.tabularNumbers,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                             if (realizedProfit != null) ...[
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: realizedProfit < 0 ? AppTheme.dangerLight : AppTheme.successLight,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: realizedProfit < 0 ? AppTheme.dangerBorder : AppTheme.successBorder,
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: realizedProfit < 0 ? AppTheme.dangerLight : AppTheme.successLight,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: realizedProfit < 0 ? AppTheme.dangerBorder : AppTheme.successBorder,
+                                    ),
                                   ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      realizedProfit < 0 ? 'Prejuízo Realizado' : 'Lucro Realizado',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w800,
-                                        color: realizedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        realizedProfit < 0 ? 'Prejuízo Realizado' : 'Lucro Realizado',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                          color: realizedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
+                                        ),
                                       ),
-                                    ),
-                                    Text(
-                                      '${realizedProfit < 0 ? "-" : "+"}${Formatters.formatCurrency(realizedProfit.abs())}',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w900,
-                                        color: realizedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerRight,
+                                        child: Text(
+                                          '${realizedProfit < 0 ? "-" : "+"}${Formatters.formatCurrency(realizedProfit.abs())}',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w800,
+                                            color: realizedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
+                                            fontFeatures: AppTheme.tabularNumbers,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                      if (roiPercent != null)
+                                        Text(
+                                          'ROI ${Formatters.formatPercent(roiPercent)}',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            color: realizedProfit < 0
+                                                ? AppTheme.dangerRed
+                                                : AppTheme.successGreen,
+                                            fontFeatures: AppTheme.tabularNumbers,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
                           ],
                         ),
                         const Divider(height: 16, color: AppTheme.borderSubtle),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                const Text('Status: ', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
-                                StatusBadge.paymentStatus(vehicle.activeSale!.paymentStatus),
-                              ],
-                            ),
-                            if (vehicle.activeSale!.balanceDueCents > 0) ...[
-                              Text(
-                                'Falta receber: ${Formatters.formatCurrency(vehicle.activeSale!.balanceDueCents)}',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.warningOrange),
+                        SizedBox(
+                          width: double.infinity,
+                          child: Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text('Status: ', style: TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+                                  StatusBadge.paymentStatus(vehicle.activeSale!.paymentStatus),
+                                ],
                               ),
-                            ] else ...[
-                              const Text(
-                                '100% recebido',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.successGreen),
-                              ),
+                              if (vehicle.activeSale!.balanceDueCents > 0)
+                                Text(
+                                  'Falta receber: ${Formatters.formatCurrency(vehicle.activeSale!.balanceDueCents)}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.warningOrange,
+                                    fontFeatures: AppTheme.tabularNumbers,
+                                  ),
+                                )
+                              else
+                                const Text(
+                                  '100% recebido',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.successGreen),
+                                ),
                             ],
-                          ],
+                          ),
                         ),
                       ],
                     ),

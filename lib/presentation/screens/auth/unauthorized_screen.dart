@@ -62,7 +62,7 @@ class UnauthorizedScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Sua conta (${userEmail ?? "autenticada"}) realizou login com sucesso, porém ainda não está vinculada a este espaço de trabalho.',
+                        'Sua conta (${userEmail ?? "autenticada"}) realizou login com sucesso, porém ainda não está vinculada a esta loja.',
                         style: const TextStyle(
                           fontSize: 14,
                           color: AppTheme.textMuted,
@@ -82,7 +82,7 @@ class UnauthorizedScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Seu identificador único (UID):',
+                              'Código de acesso da sua conta:',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -104,12 +104,12 @@ class UnauthorizedScreen extends StatelessWidget {
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.copy, size: 18),
-                                  tooltip: 'Copiar UID',
+                                  tooltip: 'Copiar código',
                                   onPressed: () {
                                     Clipboard.setData(ClipboardData(text: userUid));
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('UID copiado para a área de transferência!'),
+                                        content: Text('Código copiado para a área de transferência!'),
                                       ),
                                     );
                                   },
@@ -121,7 +121,7 @@ class UnauthorizedScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       const Text(
-                        'Solicite ao administrador para incluir seu UID em workspaces/default/members no Firebase.',
+                        'Envie este código ao administrador da loja para liberar o seu acesso ao AutoSaldo.',
                         style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
                         textAlign: TextAlign.center,
                       ),
@@ -129,12 +129,14 @@ class UnauthorizedScreen extends StatelessWidget {
                       ElevatedButton.icon(
                         icon: const Icon(Icons.refresh, size: 18),
                         label: const Text('Verificar permissão novamente'),
+                        style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
                         onPressed: onRefresh,
                       ),
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
                         icon: const Icon(Icons.logout, size: 18),
                         label: const Text('Sair da conta'),
+                        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
                         onPressed: () async {
                           await authRepository.signOut();
                         },

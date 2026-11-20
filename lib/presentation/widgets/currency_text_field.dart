@@ -29,6 +29,23 @@ class CurrencyInputFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
+    final trimmedNew = newValue.text.trim();
+    // Se colar um valor inteiro brasileiro com separador de milhar sem vírgula (ex: "45.000" ou "R$ 95.000"),
+    // interpreta como reais inteiros (* 100 centavos) em vez de centavos.
+    if (oldValue.text.isEmpty &&
+        RegExp(r'^(?:R\$\s*)?\d{1,3}(?:\.\d{3})+$').hasMatch(trimmedNew)) {
+      final rawDigits = trimmedNew.replaceAll(RegExp(r'[^0-9]'), '');
+      final effectiveDigits =
+          rawDigits.length + 2 <= maxDigits ? '${rawDigits}00' : rawDigits;
+      final cents = int.tryParse(effectiveDigits) ?? 0;
+      if (cents <= 0) return _emptyValue;
+      final formatted = formatCents(cents);
+      return TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
+    }
+
     final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.isEmpty) {
       return _emptyValue;
@@ -160,10 +177,16 @@ class _CurrencyTextFieldState extends State<CurrencyTextField> {
       controller: _controller,
       keyboardType: TextInputType.number,
       inputFormatters: [CurrencyInputFormatter()],
+      style: const TextStyle(fontFeatures: AppTheme.tabularNumbers),
       decoration: InputDecoration(
         labelText: widget.label,
+        hintText: '0,00',
         prefixText: 'R\$ ',
-        prefixStyle: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.textMain),
+        prefixStyle: const TextStyle(
+          fontWeight: FontWeight.w600,
+          color: AppTheme.textMain,
+          fontFeatures: AppTheme.tabularNumbers,
+        ),
         helperText: widget.helperText,
       ),
       onChanged: _handleChanged,

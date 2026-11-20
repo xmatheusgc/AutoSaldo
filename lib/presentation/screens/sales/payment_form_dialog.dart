@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/error_messages.dart';
 import '../../../core/formatters.dart';
 import '../../../core/validators.dart';
 import '../../../data/repositories/vehicle_repository.dart';
@@ -95,7 +96,10 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = 'Erro ao registrar recebimento: $e';
+          _error = ErrorMessages.friendly(
+            e,
+            fallback: 'Não foi possível registrar o recebimento. Tente novamente.',
+          );
         });
       }
     } finally {
@@ -123,27 +127,35 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Receber Parcela',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w900,
-                                color: AppTheme.textMain,
-                                letterSpacing: -0.3,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Receber Parcela',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppTheme.textMain,
+                                  letterSpacing: -0.3,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Saldo restante: ${Formatters.formatCurrency(balanceDue)}',
-                              style: const TextStyle(fontSize: 13, color: AppTheme.warningOrange, fontWeight: FontWeight.w700),
-                            ),
-                          ],
+                              const SizedBox(height: 2),
+                              Text(
+                                'Saldo restante: ${Formatters.formatCurrency(balanceDue)}',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.warningOrange,
+                                  fontWeight: FontWeight.w700,
+                                  fontFeatures: AppTheme.tabularNumbers,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         IconButton(
                           icon: const Icon(Icons.close, size: 22, color: AppTheme.textMuted),
+                          tooltip: 'Fechar',
                           onPressed: () => Navigator.of(context).pop(),
                         ),
                       ],

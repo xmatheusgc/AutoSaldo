@@ -23,6 +23,20 @@ class ExpenseRepository {
     });
   }
 
+  /// Stream em tempo real apenas das despesas de um veículo específico
+  Stream<List<Expense>> getVehicleExpensesStream(String workspaceId, String vehicleId) {
+    return _expensesCol(workspaceId)
+        .where('vehicleId', isEqualTo: vehicleId)
+        .snapshots()
+        .map((snapshot) {
+      final list = snapshot.docs.map((doc) {
+        return Expense.fromMap(doc.data()..['id'] = doc.id);
+      }).toList();
+      list.sort((a, b) => b.date.compareTo(a.date));
+      return list;
+    });
+  }
+
   /// Cria uma nova despesa vinculada a um veículo existente
   Future<String> createExpense(
     String workspaceId,
@@ -49,16 +63,25 @@ class ExpenseRepository {
     return docRef.id;
   }
 
-  /// Atualiza os dados de uma despesa
-  Future<void> updateExpense(String workspaceId, Expense expense, String userUid) async {
+  /// Atualiza apenas os campos editáveis de uma despesa sem sobrescrever auditoria de criação
+  Future<void> updateExpense(
+    String workspaceId,
+    Expense expense,
+    String userUid, {
+    String? userEmail,
+  }) async {
     final docRef = _expensesCol(workspaceId).doc(expense.id);
     final now = DateTime.now();
 
-    final data = expense.toMap();
-    data['updatedAt'] = now.toIso8601String();
-    data['updatedByUid'] = userUid;
-
-    await docRef.update(data);
+    await docRef.update({
+      'amountCents': expense.amountCents,
+      'date': expense.date,
+      'category': expense.category,
+      'description': expense.description,
+      'updatedAt': now.toIso8601String(),
+      'updatedByUid': userUid,
+      'updatedByEmail': ?userEmail,
+    });
   }
 
   /// Estorna uma despesa registrada

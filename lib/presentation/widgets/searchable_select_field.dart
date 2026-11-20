@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
-class SearchableSelectField extends StatelessWidget {
+class SearchableSelectField extends StatefulWidget {
   final String label;
   final String? hintText;
   final String? manualHintText;
@@ -37,42 +37,77 @@ class SearchableSelectField extends StatelessWidget {
     this.onSwitchToSelect,
   });
 
-  Future<void> _openPicker(BuildContext context) async {
-    if (!enabled || isLoading) return;
+  @override
+  State<SearchableSelectField> createState() => _SearchableSelectFieldState();
+}
+
+class _SearchableSelectFieldState extends State<SearchableSelectField> {
+  final FocusNode _focusNode = FocusNode();
+  bool _isFocused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() {
+    if (mounted && _isFocused != _focusNode.hasFocus) {
+      setState(() {
+        _isFocused = _focusNode.hasFocus;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openPicker(
+    BuildContext context,
+    FormFieldState<String> formFieldState,
+  ) async {
+    if (!widget.enabled || widget.isLoading) return;
 
     final result = await showDialog<_PickerResult>(
       context: context,
       builder: (ctx) => _SearchablePickerDialog(
-        title: label.replaceAll('*', '').trim(),
-        options: options,
-        allOptions: allOptions,
-        selectedValue: selectedValue,
+        title: widget.label.replaceAll('*', '').trim(),
+        options: widget.options,
+        allOptions: widget.allOptions,
+        selectedValue: widget.selectedValue,
       ),
     );
 
+    if (!mounted) return;
     if (result == null) return;
     if (result.isOther) {
-      onOtherSelected();
+      widget.onOtherSelected();
     } else if (result.value != null) {
-      onOptionSelected(result.value!);
+      formFieldState.didChange(result.value!);
+      widget.onOptionSelected(result.value!);
+      _focusNode.requestFocus();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (isOtherMode) {
+    if (widget.isOtherMode) {
       return TextFormField(
-        controller: manualController,
-        enabled: enabled,
+        controller: widget.manualController,
+        enabled: widget.enabled,
         textCapitalization: TextCapitalization.words,
         decoration: InputDecoration(
-          labelText: label,
-          hintText: manualHintText ?? hintText,
-          suffixIcon: canSwitchToSelect && onSwitchToSelect != null
+          labelText: widget.label,
+          hintText: widget.manualHintText ?? widget.hintText,
+          suffixIcon: widget.canSwitchToSelect && widget.onSwitchToSelect != null
               ? Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: TextButton.icon(
-                    onPressed: enabled ? onSwitchToSelect : null,
+                    onPressed: widget.enabled ? widget.onSwitchToSelect : null,
                     icon: const Icon(Icons.arrow_drop_down_circle_outlined, size: 18),
                     label: const Text(
                       'Lista',
@@ -81,38 +116,41 @@ class SearchableSelectField extends StatelessWidget {
                     style: TextButton.styleFrom(
                       foregroundColor: AppTheme.primaryDark,
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      minimumSize: const Size(44, 44),
                     ),
                   ),
                 )
               : null,
         ),
-        validator: validator,
+        validator: widget.validator,
       );
     }
 
     return FormField<String>(
-      key: ValueKey('select_${label}_$selectedValue'),
-      initialValue: selectedValue,
-      validator: (_) => validator?.call(selectedValue),
+      initialValue: widget.selectedValue,
+      validator: (_) => widget.validator?.call(widget.selectedValue),
       builder: (state) {
-        final displayText = (selectedValue != null && selectedValue!.isNotEmpty)
-            ? selectedValue!
-            : null;
-        final hasDisplayText = displayText != null || isLoading;
+        final displayText =
+            (widget.selectedValue != null && widget.selectedValue!.isNotEmpty)
+                ? widget.selectedValue!
+                : null;
+        final hasDisplayText = displayText != null || widget.isLoading;
 
         return InkWell(
-          onTap: (enabled && !isLoading) ? () => _openPicker(context) : null,
+          focusNode: _focusNode,
+          onTap: (widget.enabled && !widget.isLoading)
+              ? () => _openPicker(context, state)
+              : null,
           borderRadius: BorderRadius.circular(12),
           child: InputDecorator(
             isEmpty: !hasDisplayText,
+            isFocused: _isFocused,
             decoration: InputDecoration(
-              labelText: label,
-              hintText: hintText,
-              enabled: enabled,
+              labelText: widget.label,
+              hintText: widget.hintText,
+              enabled: widget.enabled,
               errorText: state.errorText,
-              suffixIcon: isLoading
+              suffixIcon: widget.isLoading
                   ? const Padding(
                       padding: EdgeInsets.all(12),
                       child: SizedBox(
@@ -131,7 +169,7 @@ class SearchableSelectField extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 15,
                       color: displayText != null
-                          ? (enabled ? AppTheme.textMain : AppTheme.textMuted)
+                          ? (widget.enabled ? AppTheme.textMain : AppTheme.textMuted)
                           : AppTheme.textMuted,
                     ),
                   )
@@ -220,6 +258,7 @@ class _SearchablePickerDialogState extends State<_SearchablePickerDialog> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, color: AppTheme.textMuted),
+                    tooltip: 'Fechar',
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -236,6 +275,7 @@ class _SearchablePickerDialogState extends State<_SearchablePickerDialog> {
                   suffixIcon: _query.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear, size: 18),
+                          tooltip: 'Limpar busca',
                           onPressed: () {
                             _searchController.clear();
                             setState(() => _query = '');

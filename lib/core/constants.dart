@@ -1,6 +1,10 @@
 class AppConstants {
   static const String defaultWorkspaceId = 'default';
 
+  // Alertas de tempo em estoque (dias)
+  static const int stagnantStockDaysThreshold = 45;
+  static const int criticalStockDaysThreshold = 60;
+
   // Situação da documentação
   static const String docStatusPendingCheck = 'pending_check';
   static const String docStatusUpToDate = 'up_to_date';

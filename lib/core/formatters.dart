@@ -123,5 +123,21 @@ class Formatters {
     if (month >= 1 && month <= 12) return months[month];
     return '';
   }
+
+  /// Formata percentual em pt-BR com 1 casa decimal (ex: "+14,3%", "-5,2%", "0,0%").
+  static String formatPercent(double percent, {bool showSign = true}) {
+    final rounded = (percent * 10).round() / 10.0;
+    final formatted = rounded.abs().toStringAsFixed(1).replaceAll('.', ',');
+    if (rounded < 0) return '-$formatted%';
+    if (rounded > 0 && showSign) return '+$formatted%';
+    return '$formatted%';
+  }
+
+  /// Formata quantidade de dias de forma amigável ("Hoje", "1 dia", "12 dias").
+  static String formatDaysCount(int days) {
+    if (days <= 0) return 'Hoje';
+    if (days == 1) return '1 dia';
+    return '$days dias';
+  }
 }
 

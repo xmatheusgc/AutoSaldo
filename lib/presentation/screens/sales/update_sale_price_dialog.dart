@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/error_messages.dart';
 import '../../../core/formatters.dart';
 import '../../../data/repositories/vehicle_repository.dart';
 import '../../../domain/models/active_sale.dart';
@@ -74,7 +75,10 @@ class _UpdateSalePriceDialogState extends State<UpdateSalePriceDialog> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = 'Erro ao atualizar valor da venda: $e';
+          _error = ErrorMessages.friendly(
+            e,
+            fallback: 'Não foi possível atualizar o valor da venda. Tente novamente.',
+          );
         });
       }
     } finally {
@@ -102,27 +106,35 @@ class _UpdateSalePriceDialogState extends State<UpdateSalePriceDialog> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Corrigir Valor',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w900,
-                                color: AppTheme.textMain,
-                                letterSpacing: -0.3,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Corrigir Valor',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppTheme.textMain,
+                                  letterSpacing: -0.3,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Já recebido: ${Formatters.formatCurrency(totalReceived)}',
-                              style: const TextStyle(fontSize: 13, color: AppTheme.textMuted, fontWeight: FontWeight.w600),
-                            ),
-                          ],
+                              const SizedBox(height: 2),
+                              Text(
+                                'Já recebido: ${Formatters.formatCurrency(totalReceived)}',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textMuted,
+                                  fontWeight: FontWeight.w600,
+                                  fontFeatures: AppTheme.tabularNumbers,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         IconButton(
                           icon: const Icon(Icons.close, size: 22, color: AppTheme.textMuted),
+                          tooltip: 'Fechar',
                           onPressed: () => Navigator.of(context).pop(),
                         ),
                       ],

@@ -34,6 +34,14 @@ class VehicleRepository {
     return Vehicle.fromMap(doc.id, doc.data()!);
   }
 
+  /// Stream em tempo real de um único veículo pelo ID
+  Stream<Vehicle?> getVehicleStream(String workspaceId, String vehicleId) {
+    return _vehiclesCol(workspaceId).doc(vehicleId).snapshots().map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      return Vehicle.fromMap(doc.id, doc.data()!);
+    });
+  }
+
   /// Verifica se há duplicidade de placa ou RENAVAM em veículos "Em estoque"
   Future<bool> hasStockDuplicate(
     String workspaceId, {
@@ -44,25 +52,30 @@ class VehicleRepository {
     final normalizedPlate = Formatters.normalizePlate(plate);
     final normalizedRenavam = Formatters.normalizeRenavam(renavam);
 
-    final snapshot = await _vehiclesCol(workspaceId).get();
-    for (final doc in snapshot.docs) {
-      if (excludeVehicleId != null && doc.id == excludeVehicleId) continue;
-      final data = doc.data();
-      final activeSale = data['activeSale'];
-      // Apenas veículos em estoque
-      if (activeSale == null) {
-        final existingPlate = Formatters.normalizePlate(data['plate'] as String? ?? '');
-        if (existingPlate == normalizedPlate) {
+    if (normalizedPlate.isNotEmpty) {
+      final plateSnap = await _vehiclesCol(workspaceId)
+          .where('plate', isEqualTo: normalizedPlate)
+          .get();
+      for (final doc in plateSnap.docs) {
+        if (excludeVehicleId != null && doc.id == excludeVehicleId) continue;
+        if (doc.data()['activeSale'] == null) {
           return true;
-        }
-        if (normalizedRenavam != null && normalizedRenavam.isNotEmpty) {
-          final existingRenavam = Formatters.normalizeRenavam(data['renavam'] as String?);
-          if (existingRenavam != null && existingRenavam == normalizedRenavam) {
-            return true;
-          }
         }
       }
     }
+
+    if (normalizedRenavam != null && normalizedRenavam.isNotEmpty) {
+      final renavamSnap = await _vehiclesCol(workspaceId)
+          .where('renavam', isEqualTo: normalizedRenavam)
+          .get();
+      for (final doc in renavamSnap.docs) {
+        if (excludeVehicleId != null && doc.id == excludeVehicleId) continue;
+        if (doc.data()['activeSale'] == null) {
+          return true;
+        }
+      }
+    }
+
     return false;
   }
 
@@ -78,24 +91,39 @@ class VehicleRepository {
     final docRef = isNew ? col.doc() : col.doc(vehicle.id);
     final now = DateTime.now();
 
-    final data = vehicle.toMap();
-    data['updatedAt'] = now.toIso8601String();
-    data['updatedByUid'] = userUid;
-    if (userEmail != null) {
-      data['updatedByEmail'] = userEmail;
-    }
-
     if (isNew) {
+      final data = vehicle.toMap();
+      data['updatedAt'] = now.toIso8601String();
+      data['updatedByUid'] = userUid;
       data['createdAt'] = now.toIso8601String();
       data['createdByUid'] = userUid;
       if (userEmail != null) {
+        data['updatedByEmail'] = userEmail;
         data['createdByEmail'] = userEmail;
       }
       await docRef.set(data);
     } else {
-      data['createdByUid'] = vehicle.createdByUid;
-      data['createdByEmail'] = vehicle.createdByEmail;
-      await docRef.set(data, SetOptions(merge: true));
+      final updates = <String, dynamic>{
+        'brand': vehicle.brand,
+        'model': vehicle.model,
+        'version': vehicle.version,
+        'plate': vehicle.plate,
+        'purchaseDate': vehicle.purchaseDate,
+        'purchasePriceCents': vehicle.purchasePriceCents,
+        'announcedPriceCents': vehicle.announcedPriceCents,
+        'notes': vehicle.notes,
+        'renavam': vehicle.renavam,
+        'licensingYear': vehicle.licensingYear,
+        'manufactureYear': vehicle.manufactureYear,
+        'modelYear': vehicle.modelYear,
+        'crvNumber': vehicle.crvNumber,
+        'docStatus': vehicle.docStatus,
+        'docNotes': vehicle.docNotes,
+        'updatedAt': now.toIso8601String(),
+        'updatedByUid': userUid,
+        'updatedByEmail': ?userEmail,
+      };
+      await docRef.update(updates);
     }
 
     return docRef.id;
@@ -283,12 +311,14 @@ class VehicleRepository {
     });
   }
 
-  /// Cancela a venda e retorna o veículo ao estoque em transação
-  /// Exige o estorno prévio dos recebimentos válidos registrados
+  /// Cancela a venda e retorna o veículo ao estoque em transação.
+  /// Quando [revertPaymentsAtomically] é `true`, estorna automaticamente todos
+  /// os recebimentos ativos dentro da mesma transação.
   Future<void> cancelSale({
     required String workspaceId,
     required String vehicleId,
     required String userUid,
+    bool revertPaymentsAtomically = false,
   }) async {
     final docRef = _vehiclesCol(workspaceId).doc(vehicleId);
 
@@ -304,14 +334,34 @@ class VehicleRepository {
         throw Exception('O veículo já está em estoque.');
       }
 
-      if (activeSale.hasValidPayments) {
+      if (activeSale.hasValidPayments && !revertPaymentsAtomically) {
         throw Exception('Para cancelar uma venda, todos os recebimentos ativos devem ser estornados previamente.');
       }
 
       final now = DateTime.now();
-      final cancelledRecord = activeSale.toMap();
+      ActiveSale saleToArchive = activeSale;
+      if (activeSale.hasValidPayments && revertPaymentsAtomically) {
+        final revertedPayments = activeSale.payments.map((p) {
+          if (!p.isValid) return p;
+          return p.copyWith(
+            status: AppConstants.statusReverted,
+            revertedAt: now,
+            revertedByUid: userUid,
+          );
+        }).toList();
+        saleToArchive = activeSale.copyWith(
+          payments: revertedPayments,
+          updatedAt: now,
+          updatedByUid: userUid,
+        );
+      }
+
+      final cancelledRecord = saleToArchive.toMap();
       cancelledRecord['cancelledAt'] = now.toIso8601String();
       cancelledRecord['cancelledByUid'] = userUid;
+      if (activeSale.hasValidPayments && revertPaymentsAtomically) {
+        cancelledRecord['revertedPaymentsAtomically'] = true;
+      }
 
       final updatedCancelledSales = List<Map<String, dynamic>>.from(vehicle.cancelledSales)
         ..add(cancelledRecord);

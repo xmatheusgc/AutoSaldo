@@ -48,6 +48,38 @@ void main() {
       expect(result.selection.baseOffset, '95.000,00'.length);
     });
 
+    test('interprets pasted Brazilian whole-real strings with thousands dots as full reais', () {
+      final dotOnly = formatter.formatEditUpdate(
+        TextEditingValue.empty,
+        const TextEditingValue(
+          text: '45.000',
+          selection: TextSelection.collapsed(offset: 6),
+        ),
+      );
+      expect(dotOnly.text, '45.000,00');
+      expect(dotOnly.selection.baseOffset, '45.000,00'.length);
+
+      final withPrefix = formatter.formatEditUpdate(
+        TextEditingValue.empty,
+        const TextEditingValue(
+          text: 'R\$ 95.000',
+          selection: TextSelection.collapsed(offset: 9),
+        ),
+      );
+      expect(withPrefix.text, '95.000,00');
+      expect(withPrefix.selection.baseOffset, '95.000,00'.length);
+
+      // Pure digits without thousands dots preserve ATM cents entry
+      final pureDigits = formatter.formatEditUpdate(
+        TextEditingValue.empty,
+        const TextEditingValue(
+          text: '9500000',
+          selection: TextSelection.collapsed(offset: 7),
+        ),
+      );
+      expect(pureDigits.text, '95.000,00');
+    });
+
     test('clears field when backspaced to zero', () {
       const oldVal = TextEditingValue(
         text: '0,05',

@@ -9,6 +9,7 @@ import 'package:autosaldo/domain/models/expense.dart';
 import 'package:autosaldo/domain/models/payment.dart';
 import 'package:autosaldo/domain/models/vehicle.dart';
 import 'package:autosaldo/presentation/screens/home_shell.dart';
+import 'package:autosaldo/presentation/screens/stock/stock_screen.dart';
 import 'package:autosaldo/presentation/screens/stock/vehicle_detail_screen.dart';
 import 'package:autosaldo/presentation/screens/stock/vehicle_form_screen.dart';
 import 'package:autosaldo/presentation/theme/app_theme.dart';
@@ -32,6 +33,12 @@ class _FakeVehicleRepository implements VehicleRepository {
       Stream.value(vehicles);
 
   @override
+  Stream<Vehicle?> getVehicleStream(String workspaceId, String vehicleId) {
+    final matches = vehicles.where((v) => v.id == vehicleId);
+    return Stream.value(matches.isEmpty ? null : matches.first);
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
@@ -43,6 +50,13 @@ class _FakeExpenseRepository implements ExpenseRepository {
   @override
   Stream<List<Expense>> getExpensesStream(String workspaceId) =>
       Stream.value(expenses);
+
+  @override
+  Stream<List<Expense>> getVehicleExpensesStream(
+    String workspaceId,
+    String vehicleId,
+  ) =>
+      Stream.value(expenses.where((e) => e.vehicleId == vehicleId).toList());
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -253,6 +267,7 @@ void main() {
       expect(find.text('Despesas (0)'), findsOneWidget);
 
       // Open Novo Gasto -> should open centered Dialog on desktop
+      await tester.ensureVisible(find.text('Novo Gasto'));
       await tester.tap(find.text('Novo Gasto'));
       await tester.pumpAndSettle();
       expect(find.byType(Dialog), findsOneWidget);
@@ -279,6 +294,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.text('Novo Gasto'));
       await tester.tap(find.text('Novo Gasto'));
       await tester.pumpAndSettle();
       expect(find.byType(Dialog), findsNothing);
@@ -337,6 +353,81 @@ void main() {
       expect(find.text('Identificação do Veículo'), findsOneWidget);
       expect(find.text('Concluir Cadastro'), findsOneWidget);
       fipeService.dispose();
+    });
+
+    testWidgets(
+        'StockScreen filter tabs expose Semantics + InkWell and HomeShell IndexedStack preserves search across tabs',
+        (tester) async {
+      final authRepo = _FakeAuthRepository();
+      final vehicleRepo = _FakeVehicleRepository(_sampleVehicles());
+      final expenseRepo = _FakeExpenseRepository(_sampleExpenses());
+
+      await setViewportSize(tester, const Size(390, 844));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: HomeShell(
+            userUid: 'u1',
+            userEmail: 'teste@autosaldo.com',
+            authRepository: authRepo,
+            vehicleRepository: vehicleRepo,
+            expenseRepository: expenseRepo,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Filter tab uses Semantics + InkWell and filters vehicles
+      final soldTabText = find.text('Vendidos (1)');
+      expect(soldTabText, findsOneWidget);
+      expect(
+        find.ancestor(of: soldTabText, matching: find.byType(InkWell)),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel('Vendidos (1)'), findsOneWidget);
+
+      await tester.tap(soldTabText);
+      await tester.pumpAndSettle();
+      expect(find.text('Honda Civic EXL 2.0 Flex Aut.'), findsOneWidget);
+      expect(find.text('Volkswagen Gol 1.6 MSI Flex'), findsNothing);
+
+      // Return to Em estoque and enter search query
+      await tester.tap(find.text('Em estoque (3)'));
+      await tester.pumpAndSettle();
+
+      final stockSearchFinder = find.descendant(
+        of: find.byType(StockScreen),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(stockSearchFinder, 'Corolla');
+      await tester.pumpAndSettle();
+      expect(find.text('Toyota Corolla XEi 2.0 Aut.'), findsOneWidget);
+      expect(find.text('Volkswagen Gol 1.6 MSI Flex'), findsNothing);
+
+      // Switch to Resumo and back to Estoque via NavigationBar
+      expect(find.byType(IndexedStack), findsOneWidget);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('Resumo'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Resumo Financeiro'), findsOneWidget);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('Estoque'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Search input and filtered list are preserved by IndexedStack
+      final searchField = tester.widget<TextField>(stockSearchFinder);
+      expect(searchField.controller?.text, 'Corolla');
+      expect(find.text('Toyota Corolla XEi 2.0 Aut.'), findsOneWidget);
+      expect(find.text('Volkswagen Gol 1.6 MSI Flex'), findsNothing);
     });
   });
 }

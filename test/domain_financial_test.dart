@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:autosaldo/core/constants.dart';
+import 'package:autosaldo/core/error_messages.dart';
 import 'package:autosaldo/core/formatters.dart';
 import 'package:autosaldo/core/validators.dart';
 import 'package:autosaldo/domain/models/active_sale.dart';
@@ -109,6 +110,107 @@ void main() {
 
       final estimatedProfit = FinancialCalculator.calculateEstimatedProfit(vehicle, expenses);
       expect(estimatedProfit, 450000); // 36.000 - 31.500 = 4.500
+    });
+
+    test('Pre-aggregated FromMap helpers exclude reverted expenses and match list calculations', () {
+      final now = DateTime.now();
+      final inStockVehicle = Vehicle(
+        id: 'v1',
+        brand: 'Volkswagen',
+        model: 'Gol',
+        plate: 'ABC1234',
+        purchaseDate: '2026-10-01',
+        purchasePriceCents: 3000000,
+        announcedPriceCents: 3600000,
+        createdAt: now,
+        updatedAt: now,
+        createdByUid: 'uid1',
+        updatedByUid: 'uid1',
+      );
+      final soldVehicle = Vehicle(
+        id: 'v2',
+        brand: 'Honda',
+        model: 'Civic',
+        plate: 'BRA2E19',
+        purchaseDate: '2026-10-01',
+        purchasePriceCents: 5000000,
+        createdAt: now,
+        updatedAt: now,
+        createdByUid: 'uid1',
+        updatedByUid: 'uid1',
+        activeSale: ActiveSale(
+          id: 's1',
+          saleDate: '2026-10-20',
+          salePriceCents: 5800000,
+          payments: [
+            Payment(
+              id: 'p1',
+              amountCents: 5800000,
+              date: '2026-10-20',
+              createdAt: now,
+              createdByUid: 'uid1',
+            ),
+          ],
+          createdAt: now,
+          updatedAt: now,
+          createdByUid: 'uid1',
+          updatedByUid: 'uid1',
+        ),
+      );
+
+      final expenses = [
+        Expense(
+          id: 'e1',
+          vehicleId: 'v1',
+          amountCents: 120000,
+          date: '2026-10-05',
+          category: AppConstants.expenseCategoryWorkshop,
+          createdAt: now,
+          updatedAt: now,
+          createdByUid: 'uid1',
+          updatedByUid: 'uid1',
+        ),
+        Expense(
+          id: 'e2',
+          vehicleId: 'v1',
+          amountCents: 80000,
+          date: '2026-10-06',
+          category: AppConstants.expenseCategoryTransport,
+          status: AppConstants.statusReverted,
+          createdAt: now,
+          updatedAt: now,
+          createdByUid: 'uid1',
+          updatedByUid: 'uid1',
+        ),
+        Expense(
+          id: 'e3',
+          vehicleId: 'v2',
+          amountCents: 250000,
+          date: '2026-10-10',
+          category: AppConstants.expenseCategoryWorkshop,
+          createdAt: now,
+          updatedAt: now,
+          createdByUid: 'uid1',
+          updatedByUid: 'uid1',
+        ),
+      ];
+
+      final map = FinancialCalculator.aggregateValidExpensesByVehicle(expenses);
+      expect(map['v1'], 120000);
+      expect(map['v2'], 250000);
+
+      expect(
+        FinancialCalculator.calculateVehicleTotalCostFromMap(inStockVehicle, map),
+        FinancialCalculator.calculateVehicleTotalCost(inStockVehicle, expenses),
+      );
+      expect(
+        FinancialCalculator.calculateEstimatedProfitFromMap(inStockVehicle, map),
+        FinancialCalculator.calculateEstimatedProfit(inStockVehicle, expenses),
+      );
+      expect(
+        FinancialCalculator.calculateRealizedProfitFromMap(soldVehicle, map),
+        FinancialCalculator.calculateRealizedProfit(soldVehicle, expenses),
+      );
     });
 
     test('Reproducing the exact specification example from Section 3', () {
@@ -292,6 +394,197 @@ void main() {
       expect(csv, contains('00123456789')); // Zeros preservados
       expect(csv, contains('00987654'));
       expect(csv, contains('AutoSaldo - Extrato Consolidado para Planilha'));
+    });
+
+    test('CSV Exporter neutralizes formula injection while preserving RENAVAM tab prefix', () {
+      final now = DateTime.now();
+      final vehicle = Vehicle(
+        id: 'v1',
+        brand: '+Ford',
+        model: '@Ka',
+        version: '-SE',
+        plate: 'ABC1234',
+        purchaseDate: '2026-10-01',
+        purchasePriceCents: 4000000,
+        renavam: '00123456789',
+        createdAt: now,
+        updatedAt: now,
+        createdByUid: 'uid1',
+        updatedByUid: 'uid1',
+      );
+      final expense = Expense(
+        id: 'e1',
+        vehicleId: 'v1',
+        amountCents: 25000,
+        date: '2026-10-03',
+        category: AppConstants.expenseCategoryWorkshop,
+        description: '=SUM(A1:A2)',
+        createdAt: now,
+        updatedAt: now,
+        createdByUid: 'uid1',
+        updatedByUid: 'uid1',
+      );
+
+      final csv = CsvExporter.generateCsv(vehicles: [vehicle], expenses: [expense]);
+      expect(csv, contains("'+Ford"));
+      expect(csv, contains("'@Ka"));
+      expect(csv, contains("'-SE"));
+      expect(csv, contains("'=SUM(A1:A2)"));
+      expect(csv, contains('\t00123456789'));
+    });
+
+    test('Calculates days in stock, ROI %, category breakdown, and extended MonthlySummary', () {
+      final now = DateTime(2026, 11, 20);
+      final vSold = Vehicle(
+        id: 'v_sold',
+        brand: 'Fiat',
+        model: 'Argo',
+        plate: 'AAA1111',
+        purchaseDate: '2026-11-01',
+        purchasePriceCents: 4000000,
+        createdAt: now,
+        updatedAt: now,
+        createdByUid: 'u1',
+        updatedByUid: 'u1',
+        activeSale: ActiveSale(
+          id: 's1',
+          saleDate: '2026-11-11',
+          salePriceCents: 4600000,
+          payments: [
+            Payment(
+              id: 'p1',
+              amountCents: 2000000,
+              date: '2026-11-11',
+              createdAt: now,
+              createdByUid: 'u1',
+            ),
+          ],
+          createdAt: now,
+          updatedAt: now,
+          createdByUid: 'u1',
+          updatedByUid: 'u1',
+        ),
+      );
+
+      final vStagnant = Vehicle(
+        id: 'v_old',
+        brand: 'VW',
+        model: 'Voyage',
+        plate: 'BBB2222',
+        purchaseDate: '2026-09-20', // 61 days before 2026-11-20
+        purchasePriceCents: 3000000,
+        createdAt: now,
+        updatedAt: now,
+        createdByUid: 'u1',
+        updatedByUid: 'u1',
+      );
+
+      final vFresh = Vehicle(
+        id: 'v_new',
+        brand: 'Hyundai',
+        model: 'HB20',
+        plate: 'CCC3333',
+        purchaseDate: '2026-11-10', // 10 days before 2026-11-20
+        purchasePriceCents: 5000000,
+        createdAt: now,
+        updatedAt: now,
+        createdByUid: 'u1',
+        updatedByUid: 'u1',
+      );
+
+      final expenses = [
+        Expense(
+          id: 'e1',
+          vehicleId: 'v_sold',
+          amountCents: 100000,
+          date: '2026-11-03',
+          category: AppConstants.expenseCategoryWorkshop,
+          createdAt: now,
+          updatedAt: now,
+          createdByUid: 'u1',
+          updatedByUid: 'u1',
+        ),
+        Expense(
+          id: 'e2',
+          vehicleId: 'v_stagnant',
+          amountCents: 50000,
+          date: '2026-11-05',
+          category: AppConstants.expenseCategoryDocumentation,
+          createdAt: now,
+          updatedAt: now,
+          createdByUid: 'u1',
+          updatedByUid: 'u1',
+        ),
+        Expense(
+          id: 'e3',
+          vehicleId: 'v_fresh',
+          amountCents: 99999,
+          date: '2026-11-06',
+          category: AppConstants.expenseCategoryParts,
+          status: AppConstants.statusReverted,
+          createdAt: now,
+          updatedAt: now,
+          createdByUid: 'u1',
+          updatedByUid: 'u1',
+        ),
+      ];
+
+      expect(FinancialCalculator.calculateDaysInStock(vSold, now: now), 10);
+      expect(FinancialCalculator.calculateDaysInStock(vStagnant, now: now), 61);
+      expect(FinancialCalculator.calculateDaysInStock(vFresh, now: now), 10);
+
+      expect(FinancialCalculator.calculateRoiPercent(500000, 4100000), closeTo(12.195, 0.01));
+      expect(FinancialCalculator.calculateRoiPercent(100000, 0), isNull);
+
+      final categories = FinancialCalculator.calculateExpensesByCategory(
+        expenses,
+        monthPrefix: '2026-11',
+      );
+      expect(categories[AppConstants.expenseCategoryWorkshop], 100000);
+      expect(categories[AppConstants.expenseCategoryDocumentation], 50000);
+      expect(categories.containsKey(AppConstants.expenseCategoryParts), isFalse);
+
+      final summary = FinancialCalculator.calculateMonthlySummary(
+        allVehicles: [vSold, vStagnant, vFresh],
+        allExpenses: expenses,
+        year: 2026,
+        month: 11,
+        now: now,
+      );
+
+      expect(summary.soldCount, 1);
+      expect(summary.soldVehiclesCostCents, 4100000);
+      expect(summary.soldVehiclesProfitCents, 500000);
+      expect(summary.soldInMonthRoiPercent, closeTo(12.195, 0.01));
+      expect(summary.avgDaysToSell, 10.0);
+      expect(summary.stockCount, 2);
+      expect(summary.avgStockAgeDays, 35.5);
+      expect(summary.stagnantStockCount, 1);
+      expect(summary.pendingReceiveVehiclesCount, 1);
+      expect(summary.toReceiveTodayCents, 2600000);
+      expect(summary.monthExpensesByCategory[AppConstants.expenseCategoryWorkshop], 100000);
+    });
+
+    test('Formatters percent/days helpers and ErrorMessages.friendly sanitize technical errors', () {
+      expect(Formatters.formatPercent(14.26), '+14,3%');
+      expect(Formatters.formatPercent(-5.14), '-5,1%');
+      expect(Formatters.formatPercent(-0.04), '0,0%');
+      expect(Formatters.formatDaysCount(0), 'Hoje');
+      expect(Formatters.formatDaysCount(1), '1 dia');
+      expect(Formatters.formatDaysCount(15), '15 dias');
+
+      expect(
+        ErrorMessages.friendly('[cloud_firestore/permission-denied] Missing permissions'),
+        'Você não tem permissão para realizar esta ação.',
+      );
+      expect(
+        ErrorMessages.friendly('SocketException: Failed host lookup'),
+        'Sem conexão com a internet ou servidor indisponível. Verifique seu sinal e tente novamente.',
+      );
+      expect(
+        ErrorMessages.friendly('Exception: O veículo já está em estoque.'),
+        'O veículo já está em estoque.',
+      );
     });
   });
 }
