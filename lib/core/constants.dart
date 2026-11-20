@@ -23,6 +23,7 @@ class AppConstants {
   static const String expenseCategoryTransport = 'transport';
   static const String expenseCategoryAdvertising = 'advertising';
   static const String expenseCategoryCommission = 'commission';
+  static const String expenseCategoryCarWash = 'car_wash';
   static const String expenseCategoryOther = 'other';
 
   static const Map<String, String> expenseCategoryLabels = {
@@ -32,6 +33,7 @@ class AppConstants {
     expenseCategoryTransport: 'Transporte / Guincho',
     expenseCategoryAdvertising: 'Anúncio',
     expenseCategoryCommission: 'Comissão',
+    expenseCategoryCarWash: 'Lava-jato',
     expenseCategoryOther: 'Outros',
   };
 
