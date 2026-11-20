@@ -133,6 +133,43 @@ class Formatters {
     return '$formatted%';
   }
 
+  /// Remove todos os caracteres não numéricos.
+  static String digitsOnly(String input) => input.replaceAll(RegExp(r'\D'), '');
+
+  /// Formata telefone brasileiro (10 ou 11 dígitos) progressivamente.
+  static String formatPhone(String? input) {
+    if (input == null) return '';
+    final raw = digitsOnly(input);
+    if (raw.isEmpty) return '';
+    final d = raw.length > 11 ? raw.substring(0, 11) : raw;
+    if (d.length <= 2) return '($d';
+    if (d.length <= 6) return '(${d.substring(0, 2)}) ${d.substring(2)}';
+    if (d.length <= 10) {
+      return '(${d.substring(0, 2)}) ${d.substring(2, 6)}-${d.substring(6)}';
+    }
+    return '(${d.substring(0, 2)}) ${d.substring(2, 7)}-${d.substring(7)}';
+  }
+
+  /// Formata CPF (até 11 dígitos) ou CNPJ (12 a 14 dígitos) progressivamente.
+  static String formatCpfCnpj(String? input) {
+    if (input == null) return '';
+    final raw = digitsOnly(input);
+    if (raw.isEmpty) return '';
+    final d = raw.length > 14 ? raw.substring(0, 14) : raw;
+    if (d.length <= 11) {
+      if (d.length <= 3) return d;
+      if (d.length <= 6) return '${d.substring(0, 3)}.${d.substring(3)}';
+      if (d.length <= 9) {
+        return '${d.substring(0, 3)}.${d.substring(3, 6)}.${d.substring(6)}';
+      }
+      return '${d.substring(0, 3)}.${d.substring(3, 6)}.${d.substring(6, 9)}-${d.substring(9)}';
+    }
+    if (d.length == 12) {
+      return '${d.substring(0, 2)}.${d.substring(2, 5)}.${d.substring(5, 8)}/${d.substring(8)}';
+    }
+    return '${d.substring(0, 2)}.${d.substring(2, 5)}.${d.substring(5, 8)}/${d.substring(8, 12)}-${d.substring(12)}';
+  }
+
   /// Formata quantidade de dias de forma amigável ("Hoje", "1 dia", "12 dias").
   static String formatDaysCount(int days) {
     if (days <= 0) return 'Hoje';

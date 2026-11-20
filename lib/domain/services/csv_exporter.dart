@@ -32,7 +32,7 @@ class CsvExporter {
     // --- SEÇÃO 1: VEÍCULOS ---
     buffer.writeln('--- 1. VEÍCULOS ---');
     buffer.writeln(
-      'Placa;Marca;Modelo;Versão;Ano Fab;Ano Mod;RENAVAM;CRV;Situação Documento;Status;Cadastrado Por;Data Compra;Valor Compra (R\$);Preço Anunciado (R\$);Data Venda;Valor Venda (R\$);Total Recebido (R\$);Saldo a Receber (R\$);Custo Total (R\$);Lucro/Prejuízo (R\$)',
+      'Placa;Marca;Modelo;Versão;Ano Fab;Ano Mod;RENAVAM;CRV;Situação Documento;Status;Cadastrado Por;Data Compra;Valor Compra (R\$);Preço Anunciado (R\$);Data Venda;Valor Venda (R\$);Total Recebido (R\$);Saldo a Receber (R\$);Custo Total (R\$);Lucro/Prejuízo (R\$);Comprador;Telefone Comprador;CPF/CNPJ Comprador',
     );
 
     for (final v in vehicles) {
@@ -63,6 +63,9 @@ class CsvExporter {
         _escapeCurrency(v.activeSale?.balanceDueCents),
         _escapeCurrency(totalCost),
         _escapeCurrency(profit),
+        _escapeText(v.activeSale?.buyerName ?? ''),
+        _escapeText(Formatters.formatPhone(v.activeSale?.buyerPhone)),
+        _escapeText(Formatters.formatCpfCnpj(v.activeSale?.buyerDocument)),
       ];
       buffer.writeln(row.join(';'));
     }

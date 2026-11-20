@@ -18,6 +18,7 @@ import '../../widgets/status_badge.dart';
 import '../expenses/expense_form_dialog.dart';
 import '../sales/payment_form_dialog.dart';
 import '../sales/sale_form_dialog.dart';
+import '../sales/update_buyer_dialog.dart';
 import '../sales/update_sale_price_dialog.dart';
 import 'vehicle_form_screen.dart';
 
@@ -1179,6 +1180,167 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     return const SizedBox.shrink();
   }
 
+  Future<void> _openEditBuyerDialog(Vehicle vehicle, ActiveSale sale) async {
+    final saved = await showAdaptiveModalSheet<bool>(
+      context: context,
+      builder: (_) => UpdateBuyerDialog(
+        workspaceId: widget.workspaceId,
+        vehicleId: vehicle.id,
+        activeSale: sale,
+        userUid: widget.userUid,
+        vehicleRepository: widget.vehicleRepository,
+      ),
+    );
+    if (saved == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Dados do comprador atualizados com sucesso!'),
+          backgroundColor: AppTheme.successGreen,
+        ),
+      );
+    }
+  }
+
+  Widget _buildBuyerInfoCard(Vehicle vehicle, ActiveSale sale) {
+    if (!sale.hasBuyerInfo) {
+      return Row(
+        children: [
+          const Expanded(
+            child: Row(
+              children: [
+                Icon(Icons.person_outline, size: 16, color: AppTheme.textMuted),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Comprador não informado',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton.icon(
+            icon: const Icon(Icons.add, size: 15),
+            label: const Text('Adicionar', style: TextStyle(fontSize: 12)),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: const Size(70, 34),
+            ),
+            onPressed: () => _openEditBuyerDialog(vehicle, sale),
+          ),
+        ],
+      );
+    }
+
+    final formattedPhone = Formatters.formatPhone(sale.buyerPhone);
+    final formattedDoc = Formatters.formatCpfCnpj(sale.buyerDocument);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.person_outline, size: 16, color: AppTheme.accentBlue),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  'Comprador',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textMain,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.edit_outlined, size: 14),
+                label: const Text('Editar', style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  minimumSize: const Size(64, 32),
+                ),
+                onPressed: () => _openEditBuyerDialog(vehicle, sale),
+              ),
+            ],
+          ),
+          if (sale.buyerName != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              sale.buyerName!,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textMain,
+              ),
+            ),
+          ],
+          if (formattedPhone.isNotEmpty || formattedDoc.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 12,
+              runSpacing: 6,
+              children: [
+                if (formattedPhone.isNotEmpty)
+                  _buildCopyableBuyerChip(
+                    icon: Icons.phone_outlined,
+                    value: formattedPhone,
+                    snackMessage: 'Telefone copiado para a área de transferência!',
+                  ),
+                if (formattedDoc.isNotEmpty)
+                  _buildCopyableBuyerChip(
+                    icon: Icons.badge_outlined,
+                    value: formattedDoc,
+                    snackMessage: 'CPF/CNPJ copiado para a área de transferência!',
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCopyableBuyerChip({
+    required IconData icon,
+    required String value,
+    required String snackMessage,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => _copyText(value, snackMessage),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: AppTheme.textMuted),
+            const SizedBox(width: 4),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textMain,
+                fontFeatures: AppTheme.tabularNumbers,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.copy_outlined, size: 12, color: AppTheme.textMuted),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSaleDetailsCard({required Vehicle vehicle}) {
     final sale = vehicle.activeSale!;
 
@@ -1327,6 +1489,10 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
               ],
             ),
           ),
+          const Divider(height: 16, color: AppTheme.borderSubtle),
+
+          // Dados do comprador (opcional)
+          _buildBuyerInfoCard(vehicle, sale),
           const Divider(height: 16, color: AppTheme.borderSubtle),
 
           // Entradas registradas

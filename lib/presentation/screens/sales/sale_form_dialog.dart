@@ -8,6 +8,7 @@ import '../../../domain/models/payment.dart';
 import '../../../domain/models/vehicle.dart';
 import '../../../domain/services/financial_calculator.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/buyer_fields_section.dart';
 import '../../widgets/currency_text_field.dart';
 import '../../widgets/date_picker_field.dart';
 import '../../widgets/responsive_layout.dart';
@@ -38,11 +39,15 @@ class SaleFormDialog extends StatefulWidget {
 
 class _SaleFormDialogState extends State<SaleFormDialog> {
   final _formKey = GlobalKey<FormState>();
+  final _buyerNameController = TextEditingController();
+  final _buyerPhoneController = TextEditingController();
+  final _buyerDocumentController = TextEditingController();
 
   late String _saleDate;
   int _salePriceCents = 0;
   _SalePaymentOption _paymentOption = _SalePaymentOption.fullCash;
   int _downPaymentCents = 0;
+  bool _buyerExpanded = false;
   bool _isSaving = false;
   String? _error;
 
@@ -51,6 +56,14 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
     super.initState();
     _saleDate = Formatters.todayIsoDate();
     _salePriceCents = widget.vehicle.announcedPriceCents ?? 0;
+  }
+
+  @override
+  void dispose() {
+    _buyerNameController.dispose();
+    _buyerPhoneController.dispose();
+    _buyerDocumentController.dispose();
+    super.dispose();
   }
 
   Future<void> _handleConfirmSale() async {
@@ -84,6 +97,10 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
       }
     }
 
+    final buyerName = _buyerNameController.text.trim();
+    final buyerPhoneDigits = Formatters.digitsOnly(_buyerPhoneController.text);
+    final buyerDocDigits = Formatters.digitsOnly(_buyerDocumentController.text);
+
     final profit = _salePriceCents - widget.totalCostCents;
     final roiPercent = FinancialCalculator.calculateRoiPercent(profit, widget.totalCostCents);
     final isLoss = profit < 0;
@@ -100,6 +117,11 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
             _summaryRow('Veículo:', widget.vehicle.title),
             _summaryRow('Placa:', widget.vehicle.formattedPlate),
             _summaryRow('Data:', Formatters.formatDate(_saleDate)),
+            if (buyerName.isNotEmpty) _summaryRow('Comprador:', buyerName),
+            if (buyerPhoneDigits.isNotEmpty)
+              _summaryRow('Telefone:', Formatters.formatPhone(buyerPhoneDigits)),
+            if (buyerDocDigits.isNotEmpty)
+              _summaryRow('CPF / CNPJ:', Formatters.formatCpfCnpj(buyerDocDigits)),
             _summaryRow('Custo total:', Formatters.formatCurrency(widget.totalCostCents)),
             _summaryRow('Valor negociado:', Formatters.formatCurrency(_salePriceCents), bold: true),
             const Divider(height: 18),
@@ -185,6 +207,9 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
         id: saleId,
         saleDate: _saleDate,
         salePriceCents: _salePriceCents,
+        buyerName: buyerName.isEmpty ? null : buyerName,
+        buyerPhone: buyerPhoneDigits.isEmpty ? null : buyerPhoneDigits,
+        buyerDocument: buyerDocDigits.isEmpty ? null : buyerDocDigits,
         payments: payments,
         createdAt: now,
         updatedAt: now,
@@ -531,6 +556,74 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
                         ),
                       ],
                     ],
+                    const SizedBox(height: 14),
+
+                    // Dados do comprador (opcional e recolhível para agilizar vendas rápidas)
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.borderSubtle),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              setState(() {
+                                _buyerExpanded = !_buyerExpanded;
+                              });
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.person_outline, size: 18, color: AppTheme.accentBlue),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Dados do comprador (opcional)',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppTheme.textMain,
+                                          ),
+                                        ),
+                                        if (!_buyerExpanded)
+                                          const Text(
+                                            'Nome, telefone e CPF/CNPJ',
+                                            style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  Icon(
+                                    _buyerExpanded ? Icons.expand_less : Icons.expand_more,
+                                    size: 20,
+                                    color: AppTheme.textMuted,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (_buyerExpanded) ...[
+                            const Divider(height: 1, color: AppTheme.borderSubtle),
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: BuyerFieldsSection(
+                                nameController: _buyerNameController,
+                                phoneController: _buyerPhoneController,
+                                documentController: _buyerDocumentController,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 20),
 
                     // Botão Principal

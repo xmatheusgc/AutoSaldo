@@ -255,6 +255,7 @@ void main() {
 
     expect(find.textContaining('Restante a receber depois'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Continuar'));
     await tester.tap(find.text('Continuar'));
     await tester.pumpAndSettle();
 

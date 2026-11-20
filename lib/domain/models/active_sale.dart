@@ -5,6 +5,9 @@ class ActiveSale {
   final String id;
   final String saleDate; // AAAA-MM-DD
   final int salePriceCents;
+  final String? buyerName;
+  final String? buyerPhone;
+  final String? buyerDocument;
   final List<Payment> payments;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -17,6 +20,9 @@ class ActiveSale {
     required this.id,
     required this.saleDate,
     required this.salePriceCents,
+    this.buyerName,
+    this.buyerPhone,
+    this.buyerDocument,
     this.payments = const [],
     required this.createdAt,
     required this.updatedAt,
@@ -25,6 +31,11 @@ class ActiveSale {
     this.createdByEmail,
     this.updatedByEmail,
   });
+
+  bool get hasBuyerInfo =>
+      (buyerName != null && buyerName!.isNotEmpty) ||
+      (buyerPhone != null && buyerPhone!.isNotEmpty) ||
+      (buyerDocument != null && buyerDocument!.isNotEmpty);
 
   /// Total de pagamentos válidos já recebidos
   int get totalReceivedCents {
@@ -61,6 +72,9 @@ class ActiveSale {
       'id': id,
       'saleDate': saleDate,
       'salePriceCents': salePriceCents,
+      'buyerName': ?buyerName,
+      'buyerPhone': ?buyerPhone,
+      'buyerDocument': ?buyerDocument,
       'payments': payments.map((p) => p.toMap()).toList(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
@@ -69,6 +83,12 @@ class ActiveSale {
       'createdByEmail': createdByEmail,
       'updatedByEmail': updatedByEmail,
     };
+  }
+
+  static String? _cleanOptional(dynamic raw) {
+    if (raw == null) return null;
+    final trimmed = raw.toString().trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 
   factory ActiveSale.fromMap(Map<String, dynamic> map) {
@@ -81,6 +101,9 @@ class ActiveSale {
       id: map['id'] as String? ?? '',
       saleDate: map['saleDate'] as String? ?? '',
       salePriceCents: (map['salePriceCents'] as num?)?.toInt() ?? 0,
+      buyerName: _cleanOptional(map['buyerName']),
+      buyerPhone: _cleanOptional(map['buyerPhone']),
+      buyerDocument: _cleanOptional(map['buyerDocument']),
       payments: paymentsList,
       createdAt: map['createdAt'] != null
           ? DateTime.tryParse(map['createdAt'].toString()) ?? DateTime.now()
@@ -99,6 +122,9 @@ class ActiveSale {
     String? id,
     String? saleDate,
     int? salePriceCents,
+    String? buyerName,
+    String? buyerPhone,
+    String? buyerDocument,
     List<Payment>? payments,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -111,6 +137,9 @@ class ActiveSale {
       id: id ?? this.id,
       saleDate: saleDate ?? this.saleDate,
       salePriceCents: salePriceCents ?? this.salePriceCents,
+      buyerName: buyerName ?? this.buyerName,
+      buyerPhone: buyerPhone ?? this.buyerPhone,
+      buyerDocument: buyerDocument ?? this.buyerDocument,
       payments: payments ?? this.payments,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -118,6 +147,31 @@ class ActiveSale {
       updatedByUid: updatedByUid ?? this.updatedByUid,
       createdByEmail: createdByEmail ?? this.createdByEmail,
       updatedByEmail: updatedByEmail ?? this.updatedByEmail,
+    );
+  }
+
+  /// Cria cópia substituindo integralmente os campos opcionais do comprador (permite limpar para null).
+  ActiveSale withBuyerInfo({
+    String? buyerName,
+    String? buyerPhone,
+    String? buyerDocument,
+    required DateTime updatedAt,
+    required String updatedByUid,
+  }) {
+    return ActiveSale(
+      id: id,
+      saleDate: saleDate,
+      salePriceCents: salePriceCents,
+      buyerName: _cleanOptional(buyerName),
+      buyerPhone: _cleanOptional(buyerPhone),
+      buyerDocument: _cleanOptional(buyerDocument),
+      payments: payments,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      createdByUid: createdByUid,
+      updatedByUid: updatedByUid,
+      createdByEmail: createdByEmail,
+      updatedByEmail: updatedByEmail,
     );
   }
 }

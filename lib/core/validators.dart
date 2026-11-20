@@ -56,5 +56,52 @@ class Validators {
     if (year == null) return true;
     return year >= 1900 && year <= 2100;
   }
+
+  /// Valida telefone brasileiro opcional (10 ou 11 dígitos quando preenchido).
+  static bool isValidPhone(String? phone) {
+    if (phone == null || phone.trim().isEmpty) return true;
+    final d = Formatters.digitsOnly(phone);
+    if (d.length != 10 && d.length != 11) return false;
+    if (RegExp(r'^(\d)\1+$').hasMatch(d)) return false;
+    final ddd = int.tryParse(d.substring(0, 2)) ?? 0;
+    return ddd >= 11 && ddd <= 99;
+  }
+
+  /// Valida CPF ou CNPJ opcional com verificação de dígitos verificadores.
+  static bool isValidCpfOrCnpj(String? doc) {
+    if (doc == null || doc.trim().isEmpty) return true;
+    final d = Formatters.digitsOnly(doc);
+    if (d.length == 11) return isValidCpf(d);
+    if (d.length == 14) return isValidCnpj(d);
+    return false;
+  }
+
+  /// Valida CPF (11 dígitos numéricos).
+  static bool isValidCpf(String digits) {
+    if (digits.length != 11 || RegExp(r'^(\d)\1{10}$').hasMatch(digits)) {
+      return false;
+    }
+    return _checkMod11Digit(digits, 9, [10, 9, 8, 7, 6, 5, 4, 3, 2]) &&
+        _checkMod11Digit(digits, 10, [11, 10, 9, 8, 7, 6, 5, 4, 3, 2]);
+  }
+
+  /// Valida CNPJ (14 dígitos numéricos).
+  static bool isValidCnpj(String digits) {
+    if (digits.length != 14 || RegExp(r'^(\d)\1{13}$').hasMatch(digits)) {
+      return false;
+    }
+    return _checkMod11Digit(digits, 12, [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) &&
+        _checkMod11Digit(digits, 13, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  }
+
+  static bool _checkMod11Digit(String digits, int targetIndex, List<int> weights) {
+    var sum = 0;
+    for (var i = 0; i < weights.length; i++) {
+      sum += (digits.codeUnitAt(i) - 48) * weights[i];
+    }
+    final rem = sum % 11;
+    final expected = rem < 2 ? 0 : 11 - rem;
+    return (digits.codeUnitAt(targetIndex) - 48) == expected;
+  }
 }
 

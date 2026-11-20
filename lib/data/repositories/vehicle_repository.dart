@@ -213,6 +213,46 @@ class VehicleRepository {
     });
   }
 
+  /// Atualiza os dados do comprador da venda ativa em transação
+  Future<void> updateSaleBuyerInfo({
+    required String workspaceId,
+    required String vehicleId,
+    String? buyerName,
+    String? buyerPhone,
+    String? buyerDocument,
+    required String userUid,
+  }) async {
+    final docRef = _vehiclesCol(workspaceId).doc(vehicleId);
+
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(docRef);
+      if (!snapshot.exists || snapshot.data() == null) {
+        throw Exception('Veículo não encontrado.');
+      }
+
+      final vehicle = Vehicle.fromMap(snapshot.id, snapshot.data()!);
+      final activeSale = vehicle.activeSale;
+      if (activeSale == null) {
+        throw Exception('O veículo não possui venda ativa para editar.');
+      }
+
+      final now = DateTime.now();
+      final updatedSale = activeSale.withBuyerInfo(
+        buyerName: buyerName,
+        buyerPhone: buyerPhone,
+        buyerDocument: buyerDocument,
+        updatedAt: now,
+        updatedByUid: userUid,
+      );
+
+      transaction.update(docRef, {
+        'activeSale': updatedSale.toMap(),
+        'updatedAt': now.toIso8601String(),
+        'updatedByUid': userUid,
+      });
+    });
+  }
+
   /// Adiciona um recebimento à venda ativa em transação
   Future<void> addPayment({
     required String workspaceId,
