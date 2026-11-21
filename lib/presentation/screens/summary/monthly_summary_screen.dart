@@ -6,6 +6,7 @@ import '../../../data/repositories/expense_repository.dart';
 import '../../../data/repositories/vehicle_repository.dart';
 import '../../../data/services/fipe_service.dart';
 import '../../../domain/models/expense.dart';
+import '../../../domain/models/model_performance.dart';
 import '../../../domain/models/vehicle.dart';
 import '../../../domain/services/csv_exporter.dart';
 import '../../../domain/services/financial_calculator.dart';
@@ -14,6 +15,7 @@ import '../../widgets/car_plate_widget.dart';
 import '../../widgets/responsive_layout.dart';
 import '../stock/vehicle_detail_screen.dart';
 import 'csv_download_helper.dart';
+import 'model_performance_view.dart';
 
 class MonthlySummaryScreen extends StatefulWidget {
   final String workspaceId;
@@ -40,6 +42,7 @@ class MonthlySummaryScreen extends StatefulWidget {
 class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
   late int _selectedYear;
   late int _selectedMonth;
+  int _selectedSection = 0;
   late Stream<List<Vehicle>> _vehiclesStream;
   late Stream<List<Expense>> _expensesStream;
 
@@ -398,6 +401,78 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
           trailingColor: AppTheme.warningOrange,
         );
       },
+    );
+  }
+
+  void _showModelSalesDrillDown(
+    ModelPerformanceStats modelStats,
+    Map<String, int> expensesByVehicle,
+  ) {
+    _showDrillDownSheet(
+      title: modelStats.displayName,
+      subtitle:
+          '${modelStats.soldCount} ${modelStats.soldCount == 1 ? "venda registrada" : "vendas registradas"}',
+      items: modelStats.soldVehicles,
+      itemBuilder: (ctx, v) {
+        final cost = FinancialCalculator.calculateVehicleTotalCostFromMap(v, expensesByVehicle);
+        final profit = v.activeSale!.salePriceCents - cost;
+        final roi = FinancialCalculator.calculateRoiPercent(profit, cost);
+        final days = FinancialCalculator.calculateDaysInStock(v);
+        final isLoss = profit < 0;
+        return _buildDrillDownTile(
+          sheetContext: ctx,
+          vehicle: v,
+          subtitle:
+              'Venda em ${Formatters.formatDate(v.activeSale!.saleDate)} • Giro: ${Formatters.formatDaysCount(days)}',
+          trailingLabel:
+              '${isLoss ? "-" : "+"}${Formatters.formatCurrency(profit.abs())}${roi != null ? " (${Formatters.formatPercent(roi)})" : ""}',
+          trailingColor: isLoss ? AppTheme.dangerRed : AppTheme.successGreen,
+        );
+      },
+    );
+  }
+
+  Widget _buildSectionTab({
+    required String label,
+    required IconData icon,
+    required int index,
+  }) {
+    final selected = _selectedSection == index;
+    return Expanded(
+      child: Material(
+        color: selected ? AppTheme.primaryDark : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () => setState(() => _selectedSection = index),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: selected ? Colors.white : AppTheme.textMuted,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: selected ? Colors.white : AppTheme.textMain,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1251,6 +1326,30 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
               ),
             );
 
+            final sectionSwitcher = Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppTheme.borderSubtle),
+              ),
+              child: Row(
+                children: [
+                  _buildSectionTab(
+                    label: 'Resumo do Mês',
+                    icon: Icons.calendar_month_outlined,
+                    index: 0,
+                  ),
+                  const SizedBox(width: 4),
+                  _buildSectionTab(
+                    label: 'Por Modelo',
+                    icon: Icons.leaderboard_outlined,
+                    index: 1,
+                  ),
+                ],
+              ),
+            );
+
             return Scaffold(
               backgroundColor: AppTheme.bgSurface,
               body: SingleChildScrollView(
@@ -1265,92 +1364,113 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                     constraints: BoxConstraints(
                       maxWidth: isDesktopLayout ? ResponsiveBreakpoints.maxContentWidth : 640,
                     ),
-                    child: isDesktopLayout
+                    child: _selectedSection == 1
                         ? Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               headerRow,
-                              const SizedBox(height: 18),
-                              monthSelector,
+                              const SizedBox(height: 14),
+                              sectionSwitcher,
                               const SizedBox(height: 16),
-                              IntrinsicHeight(
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    Expanded(child: profitCard),
-                                    const SizedBox(width: 16),
-                                    Expanded(child: cashFlowCard),
-                                  ],
-                                ),
+                              ModelPerformanceView(
+                                vehicles: vehicles,
+                                expenses: expenses,
+                                isDesktopLayout: isDesktopLayout,
+                                onModelTap: (stats) =>
+                                    _showModelSalesDrillDown(stats, expensesByVehicle),
                               ),
-                              const SizedBox(height: 20),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                                child: Text(
-                                  'Posição Geral (Hoje)',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppTheme.textMain,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              IntrinsicHeight(
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    Expanded(child: stockPositionCard),
-                                    const SizedBox(width: 14),
-                                    Expanded(child: toReceiveCard),
-                                    const SizedBox(width: 14),
-                                    Expanded(flex: 2, child: turnoverCard),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              categoryExpensesCard,
                             ],
                           )
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              headerRow,
-                              const SizedBox(height: 14),
-                              monthSelector,
-                              const SizedBox(height: 14),
-                              profitCard,
-                              const SizedBox(height: 14),
-                              cashFlowCard,
-                              const SizedBox(height: 14),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                                child: Text(
-                                  'Posição Geral (Hoje)',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppTheme.textMain,
+                        : isDesktopLayout
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  headerRow,
+                                  const SizedBox(height: 14),
+                                  sectionSwitcher,
+                                  const SizedBox(height: 16),
+                                  monthSelector,
+                                  const SizedBox(height: 16),
+                                  IntrinsicHeight(
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        Expanded(child: profitCard),
+                                        const SizedBox(width: 16),
+                                        Expanded(child: cashFlowCard),
+                                      ],
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(height: 20),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                    child: Text(
+                                      'Posição Geral (Hoje)',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppTheme.textMain,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  IntrinsicHeight(
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        Expanded(child: stockPositionCard),
+                                        const SizedBox(width: 14),
+                                        Expanded(child: toReceiveCard),
+                                        const SizedBox(width: 14),
+                                        Expanded(flex: 2, child: turnoverCard),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  categoryExpensesCard,
+                                ],
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  headerRow,
+                                  const SizedBox(height: 14),
+                                  sectionSwitcher,
+                                  const SizedBox(height: 14),
+                                  monthSelector,
+                                  const SizedBox(height: 14),
+                                  profitCard,
+                                  const SizedBox(height: 14),
+                                  cashFlowCard,
+                                  const SizedBox(height: 14),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                    child: Text(
+                                      'Posição Geral (Hoje)',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppTheme.textMain,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  IntrinsicHeight(
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        Expanded(child: stockPositionCard),
+                                        const SizedBox(width: 12),
+                                        Expanded(child: toReceiveCard),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  turnoverCard,
+                                  const SizedBox(height: 14),
+                                  categoryExpensesCard,
+                                ],
                               ),
-                              const SizedBox(height: 8),
-                              IntrinsicHeight(
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    Expanded(child: stockPositionCard),
-                                    const SizedBox(width: 12),
-                                    Expanded(child: toReceiveCard),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              turnoverCard,
-                              const SizedBox(height: 14),
-                              categoryExpensesCard,
-                            ],
-                          ),
                   ),
                 ),
               ),

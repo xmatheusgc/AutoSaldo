@@ -875,6 +875,49 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                 ],
               ),
             ),
+            if (estimatedProfit != null &&
+                FinancialCalculator.isTightMargin(estimatedProfit, totalCost)) ...[
+              const SizedBox(height: 10),
+              Builder(
+                builder: (_) {
+                  final isNegative = estimatedProfit < 0;
+                  final roi = FinancialCalculator.calculateRoiPercent(estimatedProfit, totalCost);
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isNegative ? AppTheme.dangerLight : const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isNegative ? AppTheme.dangerBorder : const Color(0xFFFDE68A),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          isNegative ? Icons.warning_amber_rounded : Icons.trending_flat,
+                          size: 17,
+                          color: isNegative ? AppTheme.dangerRed : AppTheme.warningOrange,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            isNegative
+                                ? 'Prejuízo previsto: o custo total (compra + gastos) ultrapassou o preço anunciado em ${Formatters.formatCurrency(estimatedProfit.abs())}. Reajuste o anúncio para não vender no prejuízo.'
+                                : 'Margem apertada (${roi != null ? Formatters.formatPercent(roi, showSign: false) : ""}): considere revisar o preço anunciado após as despesas.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: isNegative ? AppTheme.dangerRed : const Color(0xFFB45309),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
           ] else if (vehicle.isSold && vehicle.activeSale != null) ...[
             // Se está vendido: Resultado Realizado e Lucro
             Container(

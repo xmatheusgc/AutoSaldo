@@ -5,6 +5,9 @@ class AppConstants {
   static const int stagnantStockDaysThreshold = 45;
   static const int criticalStockDaysThreshold = 60;
 
+  // Alerta de margem apertada (ROI % abaixo desse valor)
+  static const double lowMarginRoiThresholdPercent = 5.0;
+
   // Situação da documentação
   static const String docStatusPendingCheck = 'pending_check';
   static const String docStatusUpToDate = 'up_to_date';

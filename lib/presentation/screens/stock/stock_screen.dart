@@ -978,6 +978,46 @@ class _StockScreenState extends State<StockScreen> {
                               ),
                             ),
                           ),
+                          if (vehicle.isInStock &&
+                              estimatedProfit != null &&
+                              FinancialCalculator.isTightMargin(estimatedProfit, totalCost))
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: estimatedProfit < 0
+                                    ? AppTheme.dangerLight
+                                    : const Color(0xFFFFFBEB),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: estimatedProfit < 0
+                                      ? AppTheme.dangerBorder
+                                      : const Color(0xFFFDE68A),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.warning_amber_rounded,
+                                    size: 12,
+                                    color: estimatedProfit < 0
+                                        ? AppTheme.dangerRed
+                                        : const Color(0xFFB45309),
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    estimatedProfit < 0 ? 'Prejuízo previsto' : 'Margem < 5%',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: estimatedProfit < 0
+                                          ? AppTheme.dangerRed
+                                          : const Color(0xFFB45309),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
