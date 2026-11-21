@@ -302,27 +302,38 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
                 color: selected ? AppTheme.primaryDark : AppTheme.borderInteractive,
               ),
             ),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    icon,
-                    size: 15,
-                    color: selected ? Colors.white : AppTheme.textMuted,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 15,
+                  color: selected ? Colors.white : AppTheme.textMuted,
+                ),
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
                     label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    strutStyle: const StrutStyle(
+                      fontSize: 12,
+                      height: 1.15,
+                      forceStrutHeight: true,
+                    ),
+                    textHeightBehavior: const TextHeightBehavior(
+                      applyHeightToFirstAscent: false,
+                      applyHeightToLastDescent: false,
+                    ),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                       color: selected ? Colors.white : AppTheme.textMain,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -541,15 +552,25 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
                           builder: (_) {
                             final remaining = _salePriceCents - _downPaymentCents;
                             final isInvalid = _downPaymentCents > 0 && remaining <= 0;
-                            return Text(
-                              isInvalid
-                                  ? 'A entrada deve ser menor que o valor negociado (ou selecione "À vista").'
-                                  : 'Restante a receber depois: ${Formatters.formatCurrency(remaining > 0 ? remaining : _salePriceCents)}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: isInvalid ? AppTheme.dangerRed : AppTheme.warningOrange,
-                                fontFeatures: AppTheme.tabularNumbers,
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isInvalid ? AppTheme.dangerLight : AppTheme.warningLight,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: isInvalid ? AppTheme.dangerBorder : AppTheme.warningBorder,
+                                ),
+                              ),
+                              child: Text(
+                                isInvalid
+                                    ? 'A entrada deve ser menor que o valor negociado (ou selecione "À vista").'
+                                    : 'Restante a receber depois: ${Formatters.formatCurrency(remaining > 0 ? remaining : _salePriceCents)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: isInvalid ? AppTheme.dangerRed : AppTheme.warningOrange,
+                                  fontFeatures: AppTheme.tabularNumbers,
+                                ),
                               ),
                             );
                           },
@@ -625,6 +646,26 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
                       ),
                     ),
                     const SizedBox(height: 20),
+
+                    if (_error != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.dangerLight,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppTheme.dangerBorder),
+                        ),
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(
+                            color: AppTheme.dangerRed,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
 
                     // Botão Principal
                     ElevatedButton(

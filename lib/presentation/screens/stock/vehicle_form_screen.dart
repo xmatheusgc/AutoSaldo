@@ -998,7 +998,7 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
                           const SizedBox(height: 16),
                         ],
 
-                        if (isTwoColumn)
+                        if (isTwoColumn) ...[
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1014,18 +1014,19 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
                               ),
                               const SizedBox(width: 20),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    _buildDocumentationCard(collapsible: false),
-                                    const SizedBox(height: 20),
-                                    saveButton,
-                                  ],
-                                ),
+                                child: _buildDocumentationCard(collapsible: false),
                               ),
                             ],
-                          )
-                        else ...[
+                          ),
+                          const SizedBox(height: 22),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 320),
+                              child: saveButton,
+                            ),
+                          ),
+                        ] else ...[
                           identificationCard,
                           const SizedBox(height: 14),
                           purchaseCard,

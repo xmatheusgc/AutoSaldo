@@ -377,23 +377,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         // Botão de Login com Google
                         OutlinedButton.icon(
-                          icon: Container(
-                            width: 22,
-                            height: 22,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: AppTheme.accentSoft,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFFBFDBFE)),
-                            ),
-                            child: const Text(
-                              'G',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                                color: AppTheme.accentBlue,
-                              ),
-                            ),
+                          icon: const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CustomPaint(painter: _GoogleLogoPainter()),
                           ),
                           label: const Text('Continuar com Google'),
                           onPressed: _isLoading ? null : _handleGoogleLogin,
@@ -409,4 +396,47 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+}
+
+class _GoogleLogoPainter extends CustomPainter {
+  const _GoogleLogoPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width * 0.44;
+    final stroke = size.width * 0.20;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.butt;
+
+    // Vermelho (topo)
+    paint.color = const Color(0xFFEA4335);
+    canvas.drawArc(rect, -2.55, 1.85, false, paint);
+    // Amarelo (esquerda)
+    paint.color = const Color(0xFFFBBC05);
+    canvas.drawArc(rect, 2.40, 1.33, false, paint);
+    // Verde (base)
+    paint.color = const Color(0xFF34A853);
+    canvas.drawArc(rect, 0.52, 1.88, false, paint);
+    // Azul (arco direito + barra horizontal)
+    paint.color = const Color(0xFF4285F4);
+    canvas.drawArc(rect, -0.05, 0.62, false, paint);
+
+    final barPaint = Paint()
+      ..color = const Color(0xFF4285F4)
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.square;
+    canvas.drawLine(
+      Offset(center.dx, center.dy),
+      Offset(center.dx + radius, center.dy),
+      barPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

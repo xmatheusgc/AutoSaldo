@@ -9,6 +9,7 @@ import '../../../domain/models/expense.dart';
 import '../../../domain/models/vehicle.dart';
 import '../../../domain/services/financial_calculator.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_segmented_control.dart';
 import '../../widgets/car_plate_widget.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../widgets/status_badge.dart';
@@ -176,20 +177,27 @@ class _StockScreenState extends State<StockScreen> {
   }
 
   Widget _buildSegmentedFilter(int inStockCount, int soldCount, int totalCount) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE2E8F0),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          _buildFilterTab('in_stock', 'Em estoque', inStockCount),
-          _buildFilterTab('sold', 'Vendidos', soldCount),
-          _buildFilterTab('all', 'Todos', totalCount),
-        ],
-      ),
+    return AppSegmentedControl<String>(
+      selectedValue: _filter,
+      maxDesktopWidth: null,
+      onChanged: (value) {
+        setState(() {
+          _filter = value;
+        });
+      },
+      items: [
+        AppSegmentedItem(value: 'in_stock', label: 'Em estoque ($inStockCount)'),
+        AppSegmentedItem(value: 'sold', label: 'Vendidos ($soldCount)'),
+        AppSegmentedItem(value: 'all', label: 'Todos ($totalCount)'),
+      ],
     );
+  }
+
+  String? _shortAuthor(String? email) {
+    if (email == null || email.trim().isEmpty) return null;
+    final prefix = email.trim().split('@').first;
+    if (prefix.isEmpty) return null;
+    return prefix[0].toUpperCase() + prefix.substring(1);
   }
 
   String _sortLabel(_StockSort sort) {
@@ -506,7 +514,14 @@ class _StockScreenState extends State<StockScreen> {
                                       ),
                                     ),
                                     Text(
-                                      '$inStockCount ${inStockCount == 1 ? "veículo ativo" : "veículos ativos"}',
+                                      switch (_filter) {
+                                        'in_stock' =>
+                                          '$inStockCount ${inStockCount == 1 ? "veículo ativo" : "veículos ativos"}',
+                                        'sold' =>
+                                          '$soldCount ${soldCount == 1 ? "veículo vendido" : "veículos vendidos"}',
+                                        _ =>
+                                          '${allVehicles.length} ${allVehicles.length == 1 ? "veículo no total" : "veículos no total"}',
+                                      },
                                       style: const TextStyle(
                                         fontSize: 13,
                                         color: AppTheme.textMuted,
@@ -588,7 +603,7 @@ class _StockScreenState extends State<StockScreen> {
                                         expensesByVehicle,
                                       )
                                     : ListView.builder(
-                                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+                                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
                                         itemCount: filtered.length,
                                         itemBuilder: (context, index) {
                                           final vehicle = filtered[index];
@@ -652,104 +667,46 @@ class _StockScreenState extends State<StockScreen> {
                 final startIndex = rowIndex * columns;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 14),
-                  child: IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: List.generate(columns, (colIndex) {
-                        final itemIndex = startIndex + colIndex;
-                        final Widget child;
-                        if (itemIndex < filtered.length) {
-                          final vehicle = filtered[itemIndex];
-                          final totalCost =
-                              FinancialCalculator.calculateVehicleTotalCostFromMap(
-                                  vehicle, expensesByVehicle);
-                          final estimatedProfit =
-                              FinancialCalculator.calculateEstimatedProfitFromMap(
-                                  vehicle, expensesByVehicle);
-                          final realizedProfit =
-                              FinancialCalculator.calculateRealizedProfitFromMap(
-                                  vehicle, expensesByVehicle);
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: List.generate(columns, (colIndex) {
+                      final itemIndex = startIndex + colIndex;
+                      final Widget child;
+                      if (itemIndex < filtered.length) {
+                        final vehicle = filtered[itemIndex];
+                        final totalCost =
+                            FinancialCalculator.calculateVehicleTotalCostFromMap(
+                                vehicle, expensesByVehicle);
+                        final estimatedProfit =
+                            FinancialCalculator.calculateEstimatedProfitFromMap(
+                                vehicle, expensesByVehicle);
+                        final realizedProfit =
+                            FinancialCalculator.calculateRealizedProfitFromMap(
+                                vehicle, expensesByVehicle);
 
-                          child = _buildVehicleCard(
-                            vehicle: vehicle,
-                            totalCost: totalCost,
-                            estimatedProfit: estimatedProfit,
-                            realizedProfit: realizedProfit,
-                            inGrid: true,
-                          );
-                        } else {
-                          child = const SizedBox.shrink();
-                        }
-
-                        return Expanded(
-                          child: Padding(
-                            padding: EdgeInsets.only(right: colIndex < columns - 1 ? 14 : 0),
-                            child: child,
-                          ),
+                        child = _buildVehicleCard(
+                          vehicle: vehicle,
+                          totalCost: totalCost,
+                          estimatedProfit: estimatedProfit,
+                          realizedProfit: realizedProfit,
+                          inGrid: true,
                         );
-                      }),
-                    ),
+                      } else {
+                        child = const SizedBox.shrink();
+                      }
+
+                      return Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(right: colIndex < columns - 1 ? 14 : 0),
+                          child: child,
+                        ),
+                      );
+                    }),
                   ),
                 );
               },
             );
           },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterTab(String filterKey, String title, int count) {
-    final isSelected = _filter == filterKey;
-    final disableAnimations = MediaQuery.disableAnimationsOf(context);
-    return Expanded(
-      child: Semantics(
-        button: true,
-        selected: isSelected,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(9),
-            onTap: () {
-              setState(() {
-                _filter = filterKey;
-              });
-            },
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 44),
-              child: AnimatedContainer(
-                duration: disableAnimations
-                    ? Duration.zero
-                    : const Duration(milliseconds: 180),
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected ? Colors.white : Colors.transparent,
-                  borderRadius: BorderRadius.circular(9),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(15),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Text(
-                  '$title ($count)',
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                    color: isSelected ? AppTheme.primaryDark : AppTheme.textMuted,
-                  ),
-                ),
-              ),
-            ),
-          ),
         ),
       ),
     );
@@ -902,27 +859,15 @@ class _StockScreenState extends State<StockScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Top row: Real Car Plate + Badges
-                    SizedBox(
-                      width: double.infinity,
-                      child: Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: [
-                          CarPlateWidget(plate: vehicle.plate, fontSize: 14),
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: [
-                              StatusBadge.stockStatus(vehicle.isInStock),
-                              if (vehicle.docStatus == AppConstants.docStatusWithIssue)
-                                StatusBadge.docStatus(vehicle.docStatus),
-                            ],
-                          ),
-                        ],
-                      ),
+                    // Top row: Real Car Plate + Single Status Badge (prevents multi-badge wrap misaligning grid rows)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        CarPlateWidget(plate: vehicle.plate, fontSize: 14),
+                        const SizedBox(width: 8),
+                        StatusBadge.stockStatus(vehicle.isInStock),
+                      ],
                     ),
                     const SizedBox(height: 12),
 
@@ -940,17 +885,17 @@ class _StockScreenState extends State<StockScreen> {
                     ),
                     const SizedBox(height: 6),
 
-                    // Years + Days in stock + User who registered
+                    // Metadata & Alerts row
                     SizedBox(
                       width: double.infinity,
                       child: Wrap(
                         crossAxisAlignment: WrapCrossAlignment.center,
                         spacing: 6,
-                        runSpacing: 4,
+                        runSpacing: 6,
                         children: [
                           if (vehicle.manufactureYear != null || vehicle.modelYear != null)
                             Text(
-                              'Ano: ${vehicle.manufactureYear ?? "-"}/${vehicle.modelYear ?? "-"}',
+                              'Ano ${vehicle.manufactureYear ?? "-"}/${vehicle.modelYear ?? "-"}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: AppTheme.textMuted,
@@ -978,6 +923,8 @@ class _StockScreenState extends State<StockScreen> {
                               ),
                             ),
                           ),
+                          if (vehicle.docStatus == AppConstants.docStatusWithIssue)
+                            StatusBadge.docStatus(vehicle.docStatus),
                           if (vehicle.isInStock &&
                               estimatedProfit != null &&
                               FinancialCalculator.isTightMargin(estimatedProfit, totalCost))
@@ -1018,24 +965,15 @@ class _StockScreenState extends State<StockScreen> {
                                 ],
                               ),
                             ),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.person_outline, size: 13, color: AppTheme.textLight),
-                              const SizedBox(width: 3),
-                              ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 150),
-                                child: Text(
-                                  vehicle.createdByEmail != null &&
-                                          vehicle.createdByEmail!.isNotEmpty
-                                      ? vehicle.createdByEmail!
-                                      : 'Cadastrado',
-                                  style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                          if (_shortAuthor(vehicle.createdByEmail) != null)
+                            Text(
+                              '• ${_shortAuthor(vehicle.createdByEmail)!}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.textMuted,
+                                fontWeight: FontWeight.w500,
                               ),
-                            ],
-                          ),
+                            ),
                         ],
                       ),
                     ),
@@ -1165,55 +1103,50 @@ class _StockScreenState extends State<StockScreen> {
                             if (realizedProfit != null) ...[
                               const SizedBox(width: 8),
                               Flexible(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: realizedProfit < 0 ? AppTheme.dangerLight : AppTheme.successLight,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: realizedProfit < 0 ? AppTheme.dangerBorder : AppTheme.successBorder,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      realizedProfit < 0 ? 'Prejuízo Realizado' : 'Lucro Realizado',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: realizedProfit < 0
+                                            ? AppTheme.dangerRed
+                                            : AppTheme.successGreen,
+                                      ),
                                     ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
+                                    const SizedBox(height: 2),
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerRight,
+                                      child: Text(
+                                        '${realizedProfit < 0 ? "-" : "+"}${Formatters.formatCurrency(realizedProfit.abs())}',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w800,
+                                          color: realizedProfit < 0
+                                              ? AppTheme.dangerRed
+                                              : AppTheme.successGreen,
+                                          fontFeatures: AppTheme.tabularNumbers,
+                                        ),
+                                      ),
+                                    ),
+                                    if (roiPercent != null)
                                       Text(
-                                        realizedProfit < 0 ? 'Prejuízo Realizado' : 'Lucro Realizado',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                                        'ROI ${Formatters.formatPercent(roiPercent)}',
                                         style: TextStyle(
                                           fontSize: 10,
-                                          fontWeight: FontWeight.w800,
-                                          color: realizedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
+                                          fontWeight: FontWeight.w700,
+                                          color: realizedProfit < 0
+                                              ? AppTheme.dangerRed
+                                              : AppTheme.successGreen,
+                                          fontFeatures: AppTheme.tabularNumbers,
                                         ),
                                       ),
-                                      FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        alignment: Alignment.centerRight,
-                                        child: Text(
-                                          '${realizedProfit < 0 ? "-" : "+"}${Formatters.formatCurrency(realizedProfit.abs())}',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w800,
-                                            color: realizedProfit < 0 ? AppTheme.dangerRed : AppTheme.successGreen,
-                                            fontFeatures: AppTheme.tabularNumbers,
-                                          ),
-                                        ),
-                                      ),
-                                      if (roiPercent != null)
-                                        Text(
-                                          'ROI ${Formatters.formatPercent(roiPercent)}',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w700,
-                                            color: realizedProfit < 0
-                                                ? AppTheme.dangerRed
-                                                : AppTheme.successGreen,
-                                            fontFeatures: AppTheme.tabularNumbers,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
+                                  ],
                                 ),
                               ),
                             ],

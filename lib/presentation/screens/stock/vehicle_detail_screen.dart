@@ -192,158 +192,157 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     }
   }
 
-  Future<void> _revertExpense(Expense expense) async {
-    final confirmed = await showDialog<bool>(
+  String? _formatAuthorName(String? email) {
+    if (email == null || email.trim().isEmpty) return null;
+    final prefix = email.trim().split('@').first;
+    if (prefix.isEmpty) return null;
+    return prefix[0].toUpperCase() + prefix.substring(1);
+  }
+
+  Future<void> _confirmAndExecute({
+    required String title,
+    required String message,
+    required String cancelLabel,
+    required String confirmLabel,
+    required Future<void> Function() action,
+    required String successMessage,
+  }) async {
+    final completed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Estornar Gasto'),
-        content: Text(
-          'Deseja estornar o gasto de ${Formatters.formatCurrency(expense.amountCents)} (${expense.categoryLabel})? O valor será removido do custo do carro e do caixa.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.dangerRed),
-            child: const Text('Estornar'),
+      barrierDismissible: false,
+      builder: (ctx) {
+        var isSubmitting = false;
+        String? inlineError;
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) => AlertDialog(
+            title: Text(title),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(message),
+                if (inlineError != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dangerLight,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      inlineError!,
+                      style: const TextStyle(
+                        color: AppTheme.dangerRed,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.of(ctx).pop(false),
+                child: Text(cancelLabel),
+              ),
+              ElevatedButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        setDialogState(() {
+                          isSubmitting = true;
+                          inlineError = null;
+                        });
+                        try {
+                          await action();
+                          if (ctx.mounted) Navigator.of(ctx).pop(true);
+                        } catch (e) {
+                          if (ctx.mounted) {
+                            setDialogState(() {
+                              isSubmitting = false;
+                              inlineError = ErrorMessages.friendly(e);
+                            });
+                          }
+                        }
+                      },
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.dangerRed),
+                child: isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(confirmLabel),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
 
-    if (confirmed == true) {
-      try {
-        await widget.expenseRepository.revertExpense(
-          widget.workspaceId,
-          expense.id,
-          widget.userUid,
-        );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Gasto estornado com sucesso!'),
-              backgroundColor: AppTheme.successGreen,
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(ErrorMessages.friendly(e)),
-              backgroundColor: AppTheme.dangerRed,
-            ),
-          );
-        }
-      }
+    if (completed == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(successMessage),
+          backgroundColor: AppTheme.successGreen,
+        ),
+      );
     }
   }
 
-  Future<void> _revertPayment(Payment payment) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Estornar Pagamento'),
-        content: Text(
-          'Deseja estornar o recebimento de ${Formatters.formatCurrency(payment.amountCents)}? O valor voltará a constar como saldo a receber.',
+  Future<void> _revertExpense(Expense expense) => _confirmAndExecute(
+        title: 'Estornar Gasto',
+        message:
+            'Deseja estornar o gasto de ${Formatters.formatCurrency(expense.amountCents)} (${expense.categoryLabel})? O valor será removido do custo do carro e do caixa.',
+        cancelLabel: 'Cancelar',
+        confirmLabel: 'Estornar',
+        action: () => widget.expenseRepository.revertExpense(
+          widget.workspaceId,
+          expense.id,
+          widget.userUid,
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.dangerRed),
-            child: const Text('Estornar'),
-          ),
-        ],
-      ),
-    );
+        successMessage: 'Gasto estornado com sucesso!',
+      );
 
-    if (confirmed == true) {
-      try {
-        await widget.vehicleRepository.revertPayment(
+  Future<void> _revertPayment(Payment payment) => _confirmAndExecute(
+        title: 'Estornar Pagamento',
+        message:
+            'Deseja estornar o recebimento de ${Formatters.formatCurrency(payment.amountCents)}? O valor voltará a constar como saldo a receber.',
+        cancelLabel: 'Cancelar',
+        confirmLabel: 'Estornar',
+        action: () => widget.vehicleRepository.revertPayment(
           workspaceId: widget.workspaceId,
           vehicleId: widget.vehicleId,
           paymentId: payment.id,
           userUid: widget.userUid,
-        );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Recebimento estornado com sucesso!'),
-              backgroundColor: AppTheme.successGreen,
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(ErrorMessages.friendly(e)),
-              backgroundColor: AppTheme.dangerRed,
-            ),
-          );
-        }
-      }
-    }
-  }
-
-  Future<void> _cancelSale(ActiveSale sale) async {
-    final hasPayments = sale.hasValidPayments;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(hasPayments ? 'Cancelar Venda e Estornar' : 'Cancelar Venda'),
-        content: Text(
-          hasPayments
-              ? 'Esta venda possui ${Formatters.formatCurrency(sale.totalReceivedCents)} em pagamentos recebidos.\n\nAo confirmar, todos os recebimentos serão estornados automaticamente e o veículo voltará para o estoque.'
-              : 'Deseja cancelar esta venda e retornar o veículo para o estoque? O histórico da venda será preservado.',
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Voltar')),
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.dangerRed),
-            child: Text(
-              hasPayments
-                  ? 'Cancelar e Estornar'
-                  : 'Cancelar e Voltar ao Estoque',
-            ),
-          ),
-        ],
-      ),
-    );
+        successMessage: 'Recebimento estornado com sucesso!',
+      );
 
-    if (confirmed == true) {
-      try {
-        await widget.vehicleRepository.cancelSale(
-          workspaceId: widget.workspaceId,
-          vehicleId: widget.vehicleId,
-          userUid: widget.userUid,
-          revertPaymentsAtomically: hasPayments,
-        );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                hasPayments
-                    ? 'Venda cancelada, recebimentos estornados e veículo no estoque!'
-                    : 'Venda cancelada! Veículo de volta ao estoque.',
-              ),
-              backgroundColor: AppTheme.successGreen,
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(ErrorMessages.friendly(e)),
-              backgroundColor: AppTheme.dangerRed,
-            ),
-          );
-        }
-      }
-    }
+  Future<void> _cancelSale(ActiveSale sale) {
+    final hasPayments = sale.hasValidPayments;
+    return _confirmAndExecute(
+      title: hasPayments ? 'Cancelar Venda e Estornar' : 'Cancelar Venda',
+      message: hasPayments
+          ? 'Esta venda possui ${Formatters.formatCurrency(sale.totalReceivedCents)} em pagamentos recebidos.\n\nAo confirmar, todos os recebimentos serão estornados automaticamente e o veículo voltará para o estoque.'
+          : 'Deseja cancelar esta venda e retornar o veículo para o estoque? O histórico da venda será preservado.',
+      cancelLabel: 'Voltar',
+      confirmLabel:
+          hasPayments ? 'Cancelar e Estornar' : 'Cancelar e Voltar ao Estoque',
+      action: () => widget.vehicleRepository.cancelSale(
+        workspaceId: widget.workspaceId,
+        vehicleId: widget.vehicleId,
+        userUid: widget.userUid,
+        revertPaymentsAtomically: hasPayments,
+      ),
+      successMessage: hasPayments
+          ? 'Venda cancelada, recebimentos estornados e veículo no estoque!'
+          : 'Venda cancelada! Veículo de volta ao estoque.',
+    );
   }
 
   @override
@@ -534,8 +533,10 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                                         const SizedBox(height: 14),
                                         _buildActionButtons(vehicle: vehicle, totalCost: totalCost),
                                       ],
-                                      const SizedBox(height: 14),
-                                      _buildDocsCard(vehicle),
+                                      if (vehicle.isSold) ...[
+                                        const SizedBox(height: 14),
+                                        _buildDocsCard(vehicle),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -553,6 +554,10 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                                         vehicle: vehicle,
                                         expenses: vehicleExpenses,
                                       ),
+                                      if (vehicle.isInStock) ...[
+                                        const SizedBox(height: 14),
+                                        _buildDocsCard(vehicle),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -1028,11 +1033,18 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                         ),
                       ),
                     ),
-                    TextButton(
+                    OutlinedButton(
                       onPressed: _loadingFipe ? null : () => _lookupFipeReference(vehicle),
-                      style: TextButton.styleFrom(
+                      style: OutlinedButton.styleFrom(
                         minimumSize: const Size(84, 34),
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppTheme.accentBlue,
+                        side: const BorderSide(color: AppTheme.borderInteractive),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                       ),
                       child: _loadingFipe
                           ? const SizedBox(
@@ -1701,9 +1713,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
             ),
           ] else ...[
             ...expenses.map((e) {
-              final rawEmail = (e.createdByEmail != null && e.createdByEmail!.isNotEmpty)
-                  ? e.createdByEmail!.split('@')[0]
-                  : null;
+              final authorName = _formatAuthorName(e.createdByEmail);
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 6),
@@ -1733,7 +1743,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                             Text(e.description!, style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
                           ],
                           Text(
-                            '${Formatters.formatDate(e.date)}${rawEmail != null ? " • Por: $rawEmail" : ""}',
+                            '${Formatters.formatDate(e.date)}${authorName != null ? " • Por: $authorName" : ""}',
                             style: const TextStyle(fontSize: 11, color: AppTheme.textLight),
                           ),
                         ],
@@ -1804,6 +1814,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     if (category == AppConstants.expenseCategoryTransport) iconData = Icons.local_shipping_outlined;
     if (category == AppConstants.expenseCategoryAdvertising) iconData = Icons.campaign_outlined;
     if (category == AppConstants.expenseCategoryCommission) iconData = Icons.paid_outlined;
+    if (category == AppConstants.expenseCategoryCarWash) iconData = Icons.local_car_wash_outlined;
 
     return Container(
       padding: const EdgeInsets.all(7),
@@ -1826,31 +1837,28 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: double.infinity,
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                const Text(
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
                   'Documentos (CRLV-e)',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textMain),
                 ),
-                if (vehicle.docStatus == AppConstants.docStatusWithIssue)
-                  StatusBadge.docStatus(vehicle.docStatus),
-                TextButton.icon(
-                  icon: const Icon(Icons.copy_all_outlined, size: 15),
-                  label: const Text('Copiar p/ despachante', style: TextStyle(fontSize: 12)),
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(120, 36),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  ),
-                  onPressed: () => _copyDispatcherData(vehicle),
+              ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.copy_all_outlined, size: 15),
+                label: const Text('Copiar p/ despachante', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.accentBlue,
+                  backgroundColor: Colors.white,
+                  side: const BorderSide(color: AppTheme.borderInteractive),
+                  minimumSize: const Size(120, 36),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-              ],
-            ),
+                onPressed: () => _copyDispatcherData(vehicle),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           if (vehicle.docNotes != null && vehicle.docNotes!.isNotEmpty) ...[

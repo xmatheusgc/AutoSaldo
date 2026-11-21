@@ -250,6 +250,26 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                     ),
                     const SizedBox(height: 20),
 
+                    if (_error != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.dangerLight,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppTheme.dangerBorder),
+                        ),
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(
+                            color: AppTheme.dangerRed,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
                     // Botão Salvar
                     ElevatedButton(
                       onPressed: _isSaving ? null : _handleSave,

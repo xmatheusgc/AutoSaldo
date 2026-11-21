@@ -29,6 +29,8 @@ class BuyerFieldsSection extends StatelessWidget {
             labelText: 'Nome do comprador',
             hintText: 'Ex: João da Silva',
             prefixIcon: Icon(Icons.person_outline, size: 18),
+            fillColor: Colors.white,
+            hoverColor: Colors.white,
           ),
         ),
         const SizedBox(height: 10),
@@ -42,6 +44,8 @@ class BuyerFieldsSection extends StatelessWidget {
             labelText: 'Telefone / WhatsApp',
             hintText: '(11) 99999-8888',
             prefixIcon: Icon(Icons.phone_outlined, size: 18),
+            fillColor: Colors.white,
+            hoverColor: Colors.white,
           ),
           validator: (val) {
             if (!Validators.isValidPhone(val)) {
@@ -60,6 +64,8 @@ class BuyerFieldsSection extends StatelessWidget {
             labelText: 'CPF / CNPJ',
             hintText: '000.000.000-00 ou 00.000.000/0000-00',
             prefixIcon: Icon(Icons.badge_outlined, size: 18),
+            fillColor: Colors.white,
+            hoverColor: Colors.white,
           ),
           validator: (val) {
             if (!Validators.isValidCpfOrCnpj(val)) {

@@ -181,12 +181,19 @@ class _CurrencyTextFieldState extends State<CurrencyTextField> {
       decoration: InputDecoration(
         labelText: widget.label,
         hintText: '0,00',
-        prefixText: 'R\$ ',
-        prefixStyle: const TextStyle(
-          fontWeight: FontWeight.w600,
-          color: AppTheme.textMain,
-          fontFeatures: AppTheme.tabularNumbers,
+        prefixIcon: const Padding(
+          padding: EdgeInsets.only(left: 14, right: 6),
+          child: Text(
+            'R\$',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              color: AppTheme.textMuted,
+              fontFeatures: AppTheme.tabularNumbers,
+            ),
+          ),
         ),
+        prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
         helperText: widget.helperText,
       ),
       onChanged: _handleChanged,

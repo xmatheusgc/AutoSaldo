@@ -23,8 +23,8 @@ class AppTheme {
   static const Color bgSurface = Color(0xFFF1F5F9); // Slate 100 mais suave
   static const Color cardSurface = Colors.white;
   static const Color textMain = Color(0xFF0F172A); // Slate 900
-  static const Color textMuted = Color(0xFF475569); // Slate 600
-  static const Color textLight = Color(0xFF64748B); // Slate 500
+  static const Color textMuted = Color(0xFF475569); // Slate 600 (>= 6.3:1 em bgSurface)
+  static const Color textLight = Color(0xFF475569); // Elevado de Slate 500 p/ AA em superfícies claras
   static const Color borderSubtle = Color(0xFFE2E8F0); // Slate 200 (cards e divisores)
   static const Color borderInteractive = Color(0xFF7B8CA3); // Contraste >= 3.0:1 para inputs/botões
 
@@ -42,7 +42,7 @@ class AppTheme {
         error: dangerRed,
       ),
       scaffoldBackgroundColor: bgSurface,
-      fontFamily: 'Roboto',
+      fontFamily: 'Inter',
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.white,
         foregroundColor: primaryDark,
@@ -87,7 +87,29 @@ class AppTheme {
           borderSide: const BorderSide(color: dangerRed),
         ),
         labelStyle: const TextStyle(color: textMuted, fontSize: 14),
-        floatingLabelStyle: const TextStyle(color: accentBlue, fontWeight: FontWeight.w700),
+        floatingLabelStyle: WidgetStateTextStyle.resolveWith((states) {
+          if (states.contains(WidgetState.error)) {
+            return const TextStyle(color: dangerRed, fontWeight: FontWeight.w700);
+          }
+          if (states.contains(WidgetState.focused)) {
+            return const TextStyle(color: accentBlue, fontWeight: FontWeight.w700);
+          }
+          return const TextStyle(color: textMuted, fontWeight: FontWeight.w600);
+        }),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 6,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: borderSubtle),
+        ),
+        textStyle: const TextStyle(
+          color: textMain,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(

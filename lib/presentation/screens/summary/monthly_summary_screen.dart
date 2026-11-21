@@ -11,6 +11,7 @@ import '../../../domain/models/vehicle.dart';
 import '../../../domain/services/csv_exporter.dart';
 import '../../../domain/services/financial_calculator.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_segmented_control.dart';
 import '../../widgets/car_plate_widget.dart';
 import '../../widgets/responsive_layout.dart';
 import '../stock/vehicle_detail_screen.dart';
@@ -104,8 +105,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
         vehicles: vehicles,
         expenses: expenses,
       );
-      final filename =
-          'AutoSaldo_Extrato_${_selectedYear}_${_selectedMonth.toString().padLeft(2, '0')}.csv';
+      const filename = 'AutoSaldo_Extrato_Completo.csv';
 
       downloadCsv(csvContent, filename);
 
@@ -432,50 +432,6 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
     );
   }
 
-  Widget _buildSectionTab({
-    required String label,
-    required IconData icon,
-    required int index,
-  }) {
-    final selected = _selectedSection == index;
-    return Expanded(
-      child: Material(
-        color: selected ? AppTheme.primaryDark : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: () => setState(() => _selectedSection = index),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  size: 16,
-                  color: selected ? Colors.white : AppTheme.textMuted,
-                ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: selected ? Colors.white : AppTheme.textMain,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildTurnoverMetric({
     required String label,
     required String value,
@@ -636,8 +592,14 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
               ),
             );
 
-            final monthSelector = Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            final monthSelector = Align(
+              alignment: Alignment.center,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: isDesktopLayout ? 460 : double.infinity,
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
@@ -692,7 +654,9 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                   ),
                 ],
               ),
-            );
+            ),
+          ),
+        );
 
             final profitCard = Material(
               color: Colors.white,
@@ -721,9 +685,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: isDesktopLayout
-                        ? MainAxisAlignment.spaceBetween
-                        : MainAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -935,7 +897,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                           ),
                         ),
                         Text(
-                          '+ ${Formatters.formatCurrency(summary.monthIncomeCents)}',
+                          '+${Formatters.formatCurrency(summary.monthIncomeCents)}',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
@@ -978,7 +940,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                           ),
                         ),
                         Text(
-                          '- ${Formatters.formatCurrency(summary.monthExpensesCents)}',
+                          '-${Formatters.formatCurrency(summary.monthExpensesCents)}',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
@@ -1277,7 +1239,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                       final pct = (ratio * 100).round();
 
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.only(bottom: 12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1308,14 +1270,14 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 5),
+                            const SizedBox(height: 7),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(4),
                               child: LinearProgressIndicator(
                                 value: ratio.clamp(0.0, 1.0),
                                 minHeight: 7,
                                 backgroundColor: const Color(0xFFF1F5F9),
-                                color: AppTheme.accentBlue,
+                                color: AppTheme.primaryDark,
                               ),
                             ),
                           ],
@@ -1326,28 +1288,22 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
               ),
             );
 
-            final sectionSwitcher = Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppTheme.borderSubtle),
-              ),
-              child: Row(
-                children: [
-                  _buildSectionTab(
-                    label: 'Resumo do Mês',
-                    icon: Icons.calendar_month_outlined,
-                    index: 0,
-                  ),
-                  const SizedBox(width: 4),
-                  _buildSectionTab(
-                    label: 'Por Modelo',
-                    icon: Icons.leaderboard_outlined,
-                    index: 1,
-                  ),
-                ],
-              ),
+            final sectionSwitcher = AppSegmentedControl<int>(
+              selectedValue: _selectedSection,
+              maxDesktopWidth: isDesktopLayout ? 420 : null,
+              onChanged: (idx) => setState(() => _selectedSection = idx),
+              items: const [
+                AppSegmentedItem(
+                  value: 0,
+                  label: 'Resumo do Mês',
+                  icon: Icons.calendar_month_outlined,
+                ),
+                AppSegmentedItem(
+                  value: 1,
+                  label: 'Por Modelo',
+                  icon: Icons.leaderboard_outlined,
+                ),
+              ],
             );
 
             return Scaffold(

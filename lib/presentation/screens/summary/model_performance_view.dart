@@ -5,6 +5,7 @@ import '../../../domain/models/model_performance.dart';
 import '../../../domain/models/vehicle.dart';
 import '../../../domain/services/financial_calculator.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_segmented_control.dart';
 
 enum _ModelRankingSort {
   totalProfit,
@@ -169,38 +170,6 @@ class _ModelPerformanceViewState extends State<ModelPerformanceView> {
     );
   }
 
-  Widget _buildFilterChip({
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: selected ? AppTheme.primaryDark : Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: selected ? AppTheme.primaryDark : AppTheme.borderInteractive,
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: selected ? Colors.white : AppTheme.textMain,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildMetricCell(String label, String value, {Color? valueColor}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -239,20 +208,17 @@ class _ModelPerformanceViewState extends State<ModelPerformanceView> {
       window: _window,
     );
 
-    final windowSelector = SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (final w in ModelAnalyticsWindow.values) ...[
-            _buildFilterChip(
-              label: _windowLabel(w),
-              selected: _window == w,
-              onTap: () => setState(() => _window = w),
-            ),
-            const SizedBox(width: 8),
-          ],
-        ],
-      ),
+    final windowSelector = Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final w in ModelAnalyticsWindow.values)
+          AppFilterPill(
+            label: _windowLabel(w),
+            selected: _window == w,
+            onTap: () => setState(() => _window = w),
+          ),
+      ],
     );
 
     if (report.totalSoldCount == 0) {
@@ -323,44 +289,92 @@ class _ModelPerformanceViewState extends State<ModelPerformanceView> {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildMetricCell(
-                  'Vendas',
-                  '${report.totalSoldCount}',
+          if (widget.isDesktopLayout)
+            Row(
+              children: [
+                Expanded(
+                  child: _buildMetricCell(
+                    'Vendas',
+                    '${report.totalSoldCount}',
+                  ),
                 ),
-              ),
-              Expanded(
-                child: _buildMetricCell(
-                  'Giro médio',
-                  report.overallAvgDaysToSell != null
-                      ? _formatAvgDays(report.overallAvgDaysToSell!)
-                      : '--',
+                Expanded(
+                  child: _buildMetricCell(
+                    'Giro médio',
+                    report.overallAvgDaysToSell != null
+                        ? _formatAvgDays(report.overallAvgDaysToSell!)
+                        : '--',
+                  ),
                 ),
-              ),
-              Expanded(
-                child: _buildMetricCell(
-                  'Lucro total',
-                  '${isOverallProfitPositive ? "+" : "-"}${Formatters.formatCurrency(report.totalProfitCents.abs())}',
-                  valueColor: isOverallProfitPositive
-                      ? AppTheme.successGreen
-                      : AppTheme.dangerRed,
+                Expanded(
+                  child: _buildMetricCell(
+                    'Lucro total',
+                    '${isOverallProfitPositive ? "+" : "-"}${Formatters.formatCurrency(report.totalProfitCents.abs())}',
+                    valueColor: isOverallProfitPositive
+                        ? AppTheme.successGreen
+                        : AppTheme.dangerRed,
+                  ),
                 ),
-              ),
-              Expanded(
-                child: _buildMetricCell(
-                  'ROI médio',
-                  report.overallRoiPercent != null
-                      ? Formatters.formatPercent(report.overallRoiPercent!)
-                      : '--',
-                  valueColor: (report.overallRoiPercent ?? 0) >= 0
-                      ? AppTheme.successGreen
-                      : AppTheme.dangerRed,
+                Expanded(
+                  child: _buildMetricCell(
+                    'ROI médio',
+                    report.overallRoiPercent != null
+                        ? Formatters.formatPercent(report.overallRoiPercent!)
+                        : '--',
+                    valueColor: (report.overallRoiPercent ?? 0) >= 0
+                        ? AppTheme.successGreen
+                        : AppTheme.dangerRed,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            )
+          else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _buildMetricCell(
+                    'Vendas',
+                    '${report.totalSoldCount}',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildMetricCell(
+                    'Giro médio',
+                    report.overallAvgDaysToSell != null
+                        ? _formatAvgDays(report.overallAvgDaysToSell!)
+                        : '--',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildMetricCell(
+                    'Lucro total',
+                    '${isOverallProfitPositive ? "+" : "-"}${Formatters.formatCurrency(report.totalProfitCents.abs())}',
+                    valueColor: isOverallProfitPositive
+                        ? AppTheme.successGreen
+                        : AppTheme.dangerRed,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildMetricCell(
+                    'ROI médio',
+                    report.overallRoiPercent != null
+                        ? Formatters.formatPercent(report.overallRoiPercent!)
+                        : '--',
+                    valueColor: (report.overallRoiPercent ?? 0) >= 0
+                        ? AppTheme.successGreen
+                        : AppTheme.dangerRed,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -471,20 +485,17 @@ class _ModelPerformanceViewState extends State<ModelPerformanceView> {
           ],
         ),
         const SizedBox(height: 8),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final s in _ModelRankingSort.values) ...[
-                _buildFilterChip(
-                  label: _sortLabel(s),
-                  selected: _sort == s,
-                  onTap: () => setState(() => _sort = s),
-                ),
-                const SizedBox(width: 8),
-              ],
-            ],
-          ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final s in _ModelRankingSort.values)
+              AppFilterPill(
+                label: _sortLabel(s),
+                selected: _sort == s,
+                onTap: () => setState(() => _sort = s),
+              ),
+          ],
         ),
         const SizedBox(height: 12),
 
