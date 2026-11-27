@@ -28,7 +28,7 @@ rules_version = '2';
 //    - vehicleId: string (deve apontar para um veículo existente no workspace)
 //    - amountCents: int (> 0)
 //    - date: string (AAAA-MM-DD)
-//    - category: string ('workshop', 'parts', 'documentation', 'transport', 'advertising', 'commission', 'other')
+//    - category: string ('workshop', 'parts', 'documentation', 'transport', 'advertising', 'commission', 'car_wash', 'other')
 //    - description: string (opcional)
 //    - status: string ('valid', 'reverted')
 //    - createdByUid, updatedByUid: string
@@ -88,7 +88,7 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/workspaces/$(workspaceId)/vehicles/$(data.vehicleId)) &&
         data.amountCents is int && data.amountCents > 0 &&
         isValidDate(data.date) &&
-        data.category in ['workshop', 'parts', 'documentation', 'transport', 'advertising', 'commission', 'other'] &&
+        data.category in ['workshop', 'parts', 'documentation', 'transport', 'advertising', 'commission', 'car_wash', 'other'] &&
         data.status in ['valid', 'reverted'] &&
         data.createdByUid is string &&
         data.updatedByUid is string;
