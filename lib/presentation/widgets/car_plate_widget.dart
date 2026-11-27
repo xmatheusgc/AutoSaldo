@@ -4,11 +4,13 @@ import '../../core/formatters.dart';
 class CarPlateWidget extends StatelessWidget {
   final String plate;
   final double fontSize;
+  final bool compact;
 
   const CarPlateWidget({
     super.key,
     required this.plate,
     this.fontSize = 15,
+    this.compact = false,
   });
 
   @override
@@ -23,18 +25,20 @@ class CarPlateWidget extends StatelessWidget {
       plateWidget = Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.black, width: 2.0),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(30),
-              blurRadius: 3,
-              offset: const Offset(0, 1),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(compact ? 5 : 6),
+          border: Border.all(color: Colors.black, width: compact ? 1.5 : 2.0),
+          boxShadow: compact
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(30),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(compact ? 3.5 : 4),
           child: IntrinsicWidth(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -43,23 +47,26 @@ class CarPlateWidget extends StatelessWidget {
                 // Faixa azul oficial Mercosul
                 Container(
                   color: const Color(0xFF003399),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 5 : 8,
+                    vertical: compact ? 1 : 2,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       // Bandeira do Brasil sutil
                       Container(
-                        width: 9,
-                        height: 6,
+                        width: compact ? 7 : 9,
+                        height: compact ? 5 : 6,
                         decoration: BoxDecoration(
                           color: const Color(0xFF009C3B),
                           borderRadius: BorderRadius.circular(1),
                         ),
                         child: Center(
                           child: Container(
-                            width: 3.5,
-                            height: 3.5,
+                            width: compact ? 2.5 : 3.5,
+                            height: compact ? 2.5 : 3.5,
                             decoration: const BoxDecoration(
                               color: Color(0xFFFFDF00),
                               shape: BoxShape.circle,
@@ -67,14 +74,14 @@ class CarPlateWidget extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 5),
-                      const Text(
+                      SizedBox(width: compact ? 3.5 : 5),
+                      Text(
                         'BRASIL',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 7.5,
+                          fontSize: compact ? 6.0 : 7.5,
                           fontWeight: FontWeight.w900,
-                          letterSpacing: 1.5,
+                          letterSpacing: compact ? 1.1 : 1.5,
                         ),
                       ),
                     ],
@@ -83,7 +90,10 @@ class CarPlateWidget extends StatelessWidget {
                 // Chapa branca com caracteres pretos
                 Container(
                   color: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 6 : 10,
+                    vertical: compact ? 1.5 : 3,
+                  ),
                   child: Center(
                     child: Text(
                       displayPlate,
@@ -92,7 +102,7 @@ class CarPlateWidget extends StatelessWidget {
                         fontSize: fontSize,
                         fontWeight: FontWeight.w900,
                         color: Colors.black,
-                        letterSpacing: 2.0,
+                        letterSpacing: compact ? 1.1 : 2.0,
                       ),
                     ),
                   ),
@@ -107,18 +117,23 @@ class CarPlateWidget extends StatelessWidget {
       plateWidget = Container(
         decoration: BoxDecoration(
           color: const Color(0xFFCBD5E1), // Chapa cinza automotiva
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: const Color(0xFF1E293B), width: 2.0),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(30),
-              blurRadius: 3,
-              offset: const Offset(0, 1),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(compact ? 5 : 6),
+          border: Border.all(
+            color: const Color(0xFF1E293B),
+            width: compact ? 1.5 : 2.0,
+          ),
+          boxShadow: compact
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(30),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(compact ? 3.5 : 4),
           child: IntrinsicWidth(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -127,30 +142,33 @@ class CarPlateWidget extends StatelessWidget {
                 // Tarja superior cinza com rebites simulados
                 Container(
                   color: const Color(0xFF94A3B8),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 5 : 6,
+                    vertical: compact ? 1 : 1.5,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        width: 3.5,
-                        height: 3.5,
+                        width: compact ? 3 : 3.5,
+                        height: compact ? 3 : 3.5,
                         decoration: const BoxDecoration(
                           color: Color(0xFF334155),
                           shape: BoxShape.circle,
                         ),
                       ),
-                      const Text(
+                      Text(
                         'BR',
                         style: TextStyle(
-                          color: Color(0xFF1E293B),
-                          fontSize: 6.5,
+                          color: const Color(0xFF1E293B),
+                          fontSize: compact ? 5.5 : 6.5,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 1.2,
                         ),
                       ),
                       Container(
-                        width: 3.5,
-                        height: 3.5,
+                        width: compact ? 3 : 3.5,
+                        height: compact ? 3 : 3.5,
                         decoration: const BoxDecoration(
                           color: Color(0xFF334155),
                           shape: BoxShape.circle,
@@ -162,7 +180,10 @@ class CarPlateWidget extends StatelessWidget {
                 // Chapa cinza com letras pretas e traço
                 Container(
                   color: const Color(0xFFCBD5E1),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 6 : 10,
+                    vertical: compact ? 1.5 : 4,
+                  ),
                   child: Center(
                     child: Text(
                       displayPlate,
@@ -171,7 +192,7 @@ class CarPlateWidget extends StatelessWidget {
                         fontSize: fontSize,
                         fontWeight: FontWeight.w900,
                         color: Colors.black,
-                        letterSpacing: 1.6,
+                        letterSpacing: compact ? 1.0 : 1.6,
                       ),
                     ),
                   ),

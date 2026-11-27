@@ -396,13 +396,21 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      await tester.tap(find.byTooltip('Ordenar e filtrar'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ordenar e Filtrar'), findsOneWidget);
       expect(find.text('+45d pátio (1)'), findsOneWidget);
       expect(find.text('Doc pendente (1)'), findsOneWidget);
       expect(find.text('Falta receber (1)'), findsOneWidget);
-      expect(find.text('Ordenar: Mais recentes'), findsOneWidget);
+      expect(find.text('Mais recentes'), findsOneWidget);
 
       await tester.tap(find.text('+45d pátio (1)'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Aplicar'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('+45d pátio (1)'), findsOneWidget);
       expect(find.text('Fiat Uno Attractive 1.0'), findsOneWidget);
       expect(find.text('Volkswagen Gol 1.6 MSI'), findsNothing);
     }

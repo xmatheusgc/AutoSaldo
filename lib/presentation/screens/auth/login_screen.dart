@@ -176,220 +176,224 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isWide = MediaQuery.sizeOf(context).width >= 600;
+
+    final formContent = Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Cabeçalho da marca
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryDark,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.directions_car,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'AutoSaldo',
+                style: TextStyle(
+                  fontSize: 25,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.primaryDark,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Gestão de estoque e financeiro',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppTheme.textMuted,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 26),
+
+          // Mensagem de erro caso exista
+          if (_errorMessage != null) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.dangerLight,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.dangerRed.withAlpha(50)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.error_outline, color: AppTheme.dangerRed, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(
+                        color: AppTheme.dangerRed,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Campo de E-mail
+          TextFormField(
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            autocorrect: false,
+            enableSuggestions: false,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: 'E-mail',
+              hintText: 'seu@email.com',
+              prefixIcon: Icon(Icons.email_outlined, size: 20),
+            ),
+            validator: (val) {
+              if (val == null || val.trim().isEmpty) {
+                return 'Informe o e-mail cadastrado.';
+              }
+              if (!val.contains('@')) {
+                return 'Informe um e-mail válido.';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 14),
+
+          // Campo de Senha
+          TextFormField(
+            controller: _passwordController,
+            obscureText: _obscurePassword,
+            textInputAction: TextInputAction.done,
+            onFieldSubmitted: (_) => _handleEmailLogin(),
+            decoration: InputDecoration(
+              labelText: 'Senha',
+              prefixIcon: const Icon(Icons.lock_outline, size: 20),
+              suffixIcon: IconButton(
+                tooltip: _obscurePassword ? 'Mostrar senha' : 'Ocultar senha',
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                  size: 20,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _obscurePassword = !_obscurePassword;
+                  });
+                },
+              ),
+            ),
+            validator: (val) {
+              if (val == null || val.isEmpty) {
+                return 'Informe a senha.';
+              }
+              if (val.length < 6) {
+                return 'A senha possui no mínimo 6 caracteres.';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 6),
+
+          // Link de esqueci a senha
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _isLoading ? null : _showPasswordResetDialog,
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                foregroundColor: AppTheme.accentBlue,
+              ),
+              child: const Text(
+                'Esqueceu a senha?',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Botão de login por E-mail
+          ElevatedButton(
+            onPressed: _isLoading ? null : _handleEmailLogin,
+            child: _isLoading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                  )
+                : const Text('Entrar com E-mail'),
+          ),
+          const SizedBox(height: 16),
+
+          // Divisor "ou"
+          Row(
+            children: const [
+              Expanded(child: Divider(color: AppTheme.borderSubtle)),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  'OU',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textMuted,
+                  ),
+                ),
+              ),
+              Expanded(child: Divider(color: AppTheme.borderSubtle)),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Botão de Login com Google
+          OutlinedButton.icon(
+            icon: const SizedBox(
+              width: 20,
+              height: 20,
+              child: CustomPaint(painter: _GoogleLogoPainter()),
+            ),
+            label: const Text('Continuar com Google'),
+            onPressed: _isLoading ? null : _handleGoogleLogin,
+          ),
+        ],
+      ),
+    );
+
     return Scaffold(
-      backgroundColor: AppTheme.bgSurface,
+      backgroundColor: isWide ? AppTheme.desktopBg : Colors.white,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: const BorderSide(color: AppTheme.borderSubtle),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(28.0),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Cabeçalho da marca
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryDark,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(
-                                Icons.directions_car,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'AutoSaldo',
-                              style: TextStyle(
-                                fontSize: 26,
-                                fontWeight: FontWeight.w800,
-                                color: AppTheme.primaryDark,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Controle de estoque e financeiro de veículos',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.textMuted,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Mensagem de erro caso exista
-                        if (_errorMessage != null) ...[
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppTheme.dangerLight,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppTheme.dangerRed.withAlpha(50)),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(Icons.error_outline, color: AppTheme.dangerRed, size: 20),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _errorMessage!,
-                                    style: const TextStyle(
-                                      color: AppTheme.dangerRed,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // Campo de E-mail
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          autocorrect: false,
-                          enableSuggestions: false,
-                          textInputAction: TextInputAction.next,
-                          decoration: const InputDecoration(
-                            labelText: 'E-mail',
-                            hintText: 'seu@email.com',
-                            prefixIcon: Icon(Icons.email_outlined, size: 20),
-                          ),
-                          validator: (val) {
-                            if (val == null || val.trim().isEmpty) {
-                              return 'Informe o e-mail cadastrado.';
-                            }
-                            if (!val.contains('@')) {
-                              return 'Informe um e-mail válido.';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Campo de Senha
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          textInputAction: TextInputAction.done,
-                          onFieldSubmitted: (_) => _handleEmailLogin(),
-                          decoration: InputDecoration(
-                            labelText: 'Senha',
-                            prefixIcon: const Icon(Icons.lock_outline, size: 20),
-                            suffixIcon: IconButton(
-                              tooltip: _obscurePassword ? 'Mostrar senha' : 'Ocultar senha',
-                              icon: Icon(
-                                _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                                size: 20,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _obscurePassword = !_obscurePassword;
-                                });
-                              },
-                            ),
-                          ),
-                          validator: (val) {
-                            if (val == null || val.isEmpty) {
-                              return 'Informe a senha.';
-                            }
-                            if (val.length < 6) {
-                              return 'A senha possui no mínimo 6 caracteres.';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 6),
-
-                        // Link de esqueci a senha
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: _isLoading ? null : _showPasswordResetDialog,
-                            style: TextButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
-                              foregroundColor: AppTheme.accentBlue,
-                            ),
-                            child: const Text(
-                              'Esqueceu a senha?',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Botão de login por E-mail
-                        ElevatedButton(
-                          onPressed: _isLoading ? null : _handleEmailLogin,
-                          child: _isLoading
-                              ? const SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                                )
-                              : const Text('Entrar com E-mail'),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Divisor "ou"
-                        Row(
-                          children: const [
-                            Expanded(child: Divider(color: AppTheme.borderSubtle)),
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 12),
-                              child: Text(
-                                'OU',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.textMuted,
-                                ),
-                              ),
-                            ),
-                            Expanded(child: Divider(color: AppTheme.borderSubtle)),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Botão de Login com Google
-                        OutlinedButton.icon(
-                          icon: const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CustomPaint(painter: _GoogleLogoPainter()),
-                          ),
-                          label: const Text('Continuar com Google'),
-                          onPressed: _isLoading ? null : _handleGoogleLogin,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: isWide
+                  ? Container(
+                      padding: const EdgeInsets.all(28.0),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppTheme.borderSubtle),
+                      ),
+                      child: formContent,
+                    )
+                  : formContent,
             ),
           ),
         ),

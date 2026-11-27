@@ -730,14 +730,33 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
     }
   }
 
+  Widget _wrapSection({required bool isTwoColumn, required Widget child}) {
+    if (isTwoColumn) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppTheme.borderSubtle),
+        ),
+        child: child,
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final identificationCard = Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    final isTwoColumn = MediaQuery.sizeOf(context).width >= 900;
+
+    final identificationCard = _wrapSection(
+      isTwoColumn: isTwoColumn,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -843,72 +862,75 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
             ),
           ],
         ),
-      ),
     );
 
-    final purchaseCard = Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Dados Financeiros da Compra',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textMain,
-              ),
+    final purchaseCard = _wrapSection(
+      isTwoColumn: isTwoColumn,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Dados Financeiros da Compra',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textMain,
             ),
-            const SizedBox(height: 16),
-            DatePickerField(
-              label: 'Data da Compra *',
-              isoDate: _purchaseDate,
-              onDateSelected: (newDate) {
-                setState(() {
-                  _purchaseDate = newDate;
-                  _isDirty = true;
-                });
-              },
-              helperText: 'A compra não aceita datas futuras.',
-            ),
+          ),
+          const SizedBox(height: 16),
+          DatePickerField(
+            label: 'Data da Compra *',
+            isoDate: _purchaseDate,
+            onDateSelected: (newDate) {
+              setState(() {
+                _purchaseDate = newDate;
+                _isDirty = true;
+              });
+            },
+            helperText: 'A compra não aceita datas futuras.',
+          ),
+          const SizedBox(height: 14),
+          CurrencyTextField(
+            label: 'Valor pago na compra *',
+            initialValueCents: _purchasePriceCents,
+            required: true,
+            onChanged: (cents) {
+              setState(() {
+                _purchasePriceCents = cents;
+              });
+              _markDirty();
+            },
+            helperText: 'A compra compõe o custo inicial do veículo.',
+          ),
+          const SizedBox(height: 14),
+          CurrencyTextField(
+            label: 'Preço anunciado para venda (opcional)',
+            initialValueCents: _announcedPriceCents,
+            onChanged: (cents) {
+              setState(() {
+                _announcedPriceCents = cents > 0 ? cents : null;
+              });
+              _markDirty();
+            },
+            helperText: 'Usado para calcular a estimativa de lucro em estoque.',
+          ),
+          if (_brandController.text.trim().isNotEmpty &&
+              _modelController.text.trim().isNotEmpty) ...[
             const SizedBox(height: 14),
-            CurrencyTextField(
-              label: 'Valor pago na compra *',
-              initialValueCents: _purchasePriceCents,
-              required: true,
-              onChanged: (cents) {
-                setState(() {
-                  _purchasePriceCents = cents;
-                });
-                _markDirty();
-              },
-              helperText: 'A compra compõe o custo inicial do veículo.',
-            ),
-            const SizedBox(height: 14),
-            CurrencyTextField(
-              label: 'Preço anunciado para venda (opcional)',
-              initialValueCents: _announcedPriceCents,
-              onChanged: (cents) {
-                setState(() {
-                  _announcedPriceCents = cents > 0 ? cents : null;
-                });
-                _markDirty();
-              },
-              helperText: 'Usado para calcular a estimativa de lucro em estoque.',
-            ),
-            if (_brandController.text.trim().isNotEmpty &&
-                _modelController.text.trim().isNotEmpty) ...[
-              const SizedBox(height: 14),
-              _buildFipeReferenceBox(),
-            ],
+            _buildFipeReferenceBox(),
           ],
-        ),
+        ],
       ),
     );
 
     final saveButton = ElevatedButton(
       onPressed: _isSaving ? null : _handleSave,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppTheme.primaryDark,
+        foregroundColor: Colors.white,
+        minimumSize: const Size.fromHeight(48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
       child: _isSaving
           ? const SizedBox(
               width: 22,
@@ -930,31 +952,50 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
         Navigator.of(context).pop();
       },
       child: Scaffold(
-      appBar: AppBar(
-        title: Text(isEditing ? 'Editar Veículo' : 'Cadastrar Veículo'),
-      ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isTwoColumn = constraints.maxWidth >= 900;
-
-            return SingleChildScrollView(
-              padding: EdgeInsets.symmetric(
-                horizontal: isTwoColumn ? 24 : 16,
-                vertical: 20,
+        backgroundColor: isTwoColumn ? AppTheme.desktopBg : Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          title: Text(isEditing ? 'Editar Veículo' : 'Cadastrar Veículo'),
+        ),
+        bottomNavigationBar: isTwoColumn
+            ? null
+            : Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    top: BorderSide(color: AppTheme.borderSubtle, width: 1),
+                  ),
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                    child: saveButton,
+                  ),
+                ),
               ),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: isTwoColumn ? 1060 : 640),
-                  child: Form(
-                    key: _formKey,
-                    onChanged: _markDirty,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Aviso de duplicidade
-                        if (_duplicateWarning != null) ...[
-                          Container(
+        body: SafeArea(
+          top: false,
+          bottom: isTwoColumn,
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+              horizontal: isTwoColumn ? 24 : 0,
+              vertical: isTwoColumn ? 20 : 0,
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: isTwoColumn ? 1060 : 640),
+                child: Form(
+                  key: _formKey,
+                  onChanged: _markDirty,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (_duplicateWarning != null) ...[
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(isTwoColumn ? 0 : 16, 12, isTwoColumn ? 0 : 16, 0),
+                          child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: AppTheme.warningLight,
@@ -978,12 +1019,13 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
                               ],
                             ),
                           ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // Erro de gravação
-                        if (_saveError != null) ...[
-                          Container(
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      if (_saveError != null) ...[
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(isTwoColumn ? 0 : 16, 12, isTwoColumn ? 0 : 16, 0),
+                          child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: AppTheme.dangerLight,
@@ -995,57 +1037,59 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
                               style: const TextStyle(color: AppTheme.dangerRed, fontSize: 13),
                             ),
                           ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        if (isTwoColumn) ...[
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    identificationCard,
-                                    const SizedBox(height: 14),
-                                    purchaseCard,
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 20),
-                              Expanded(
-                                child: _buildDocumentationCard(collapsible: false),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 22),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 320),
-                              child: saveButton,
-                            ),
-                          ),
-                        ] else ...[
-                          identificationCard,
-                          const SizedBox(height: 14),
-                          purchaseCard,
-                          const SizedBox(height: 14),
-                          _buildDocumentationCard(collapsible: true),
-                          const SizedBox(height: 24),
-                          saveButton,
-                          const SizedBox(height: 12),
-                        ],
+                        ),
+                        const SizedBox(height: 12),
                       ],
-                    ),
+                      if (isTwoColumn) ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  identificationCard,
+                                  const SizedBox(height: 14),
+                                  purchaseCard,
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+                            Expanded(
+                              child: _buildDocumentationCard(
+                                collapsible: false,
+                                isTwoColumn: true,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 22),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 320),
+                            child: saveButton,
+                          ),
+                        ),
+                      ] else ...[
+                        identificationCard,
+                        Container(height: 8, color: AppTheme.sectionDivider),
+                        purchaseCard,
+                        Container(height: 8, color: AppTheme.sectionDivider),
+                        _buildDocumentationCard(
+                          collapsible: true,
+                          isTwoColumn: false,
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    ],
                   ),
                 ),
               ),
-            );
-          },
+            ),
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -1163,7 +1207,10 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
     );
   }
 
-  Widget _buildDocumentationCard({required bool collapsible}) {
+  Widget _buildDocumentationCard({
+    required bool collapsible,
+    required bool isTwoColumn,
+  }) {
     final isExpanded = !collapsible || _docsExpanded;
     final hasAnyDocData = _renavamController.text.trim().isNotEmpty ||
         _licensingYearController.text.trim().isNotEmpty ||
@@ -1174,56 +1221,55 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
         _docNotesController.text.trim().isNotEmpty ||
         _notesController.text.trim().isNotEmpty;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            InkWell(
-              onTap: collapsible
-                  ? () => setState(() => _docsExpanded = !_docsExpanded)
-                  : null,
-              borderRadius: BorderRadius.circular(10),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: collapsible ? 48 : 0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Documentação (CRLV-e)',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.textMain,
-                            ),
+    return _wrapSection(
+      isTwoColumn: isTwoColumn,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: collapsible
+                ? () => setState(() => _docsExpanded = !_docsExpanded)
+                : null,
+            borderRadius: BorderRadius.circular(10),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: collapsible ? 44 : 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Documentação (CRLV-e)',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.textMain,
                           ),
-                          const SizedBox(height: 3),
-                          Text(
-                            collapsible && !isExpanded
-                                ? (hasAnyDocData
-                                    ? 'Dados preenchidos • toque para editar'
-                                    : 'Opcional — toque para preencher RENAVAM, anos e notas')
-                                : 'Preenchimento opcional. Zeros à esquerda são estritamente preservados.',
-                            style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                          ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          collapsible && !isExpanded
+                              ? (hasAnyDocData
+                                  ? 'Dados preenchidos • toque para editar'
+                                  : 'Opcional — toque para preencher RENAVAM e anos')
+                              : 'Preenchimento opcional (zeros à esquerda preservados).',
+                          style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                        ),
+                      ],
                     ),
-                    if (collapsible) ...[
-                      const SizedBox(width: 8),
-                      Icon(
-                        isExpanded ? Icons.expand_less : Icons.expand_more,
-                        color: AppTheme.textMuted,
-                      ),
-                    ],
+                  ),
+                  if (collapsible) ...[
+                    const SizedBox(width: 8),
+                    Icon(
+                      isExpanded ? Icons.expand_less : Icons.expand_more,
+                      color: AppTheme.textMuted,
+                    ),
                   ],
-                ),
+                ],
               ),
             ),
+          ),
             if (isExpanded) ...[
               const SizedBox(height: 16),
 
@@ -1412,7 +1458,6 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
                             ],
                           ],
                         ),
-                      ),
-                    );
+    );
   }
 }

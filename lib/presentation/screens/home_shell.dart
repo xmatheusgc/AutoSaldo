@@ -77,6 +77,8 @@ class _HomeShellState extends State<HomeShell> {
         fipeService: widget.fipeService,
         searchFocusNode: _stockSearchFocusNode,
         newVehicleTrigger: _newVehicleTrigger,
+        onOpenAccount: _showUserModal,
+        userInitial: _userInitial,
       ),
       MonthlySummaryScreen(
         workspaceId: widget.workspaceId,
@@ -85,6 +87,8 @@ class _HomeShellState extends State<HomeShell> {
         vehicleRepository: widget.vehicleRepository,
         expenseRepository: widget.expenseRepository,
         fipeService: widget.fipeService,
+        onOpenAccount: _showUserModal,
+        userInitial: _userInitial,
       ),
     ];
   }
@@ -208,76 +212,6 @@ class _HomeShellState extends State<HomeShell> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildAppHeader() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // Perfil clicável estilo App
-            Expanded(
-              child: InkWell(
-                onTap: _showUserModal,
-                borderRadius: BorderRadius.circular(24),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 44),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: AppTheme.accentSoft,
-                          child: Text(
-                            _userInitial,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: AppTheme.accentBlue,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Flexible(
-                          child: Text(
-                            'Olá, $_userDisplayName',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
-                              color: AppTheme.textMain,
-                              letterSpacing: -0.4,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // Lado direito: Minha Conta
-            IconButton(
-              icon: const Icon(Icons.more_horiz_rounded, size: 26, color: Color(0xFF334155)),
-              tooltip: 'Minha Conta',
-              onPressed: _showUserModal,
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -519,6 +453,7 @@ class _HomeShellState extends State<HomeShell> {
 
     final scaffold = isDesktopOrTablet
         ? Scaffold(
+            backgroundColor: AppTheme.desktopBg,
             body: Row(
               children: [
                 _buildDesktopSidebar(isExpandedSidebar),
@@ -527,31 +462,34 @@ class _HomeShellState extends State<HomeShell> {
             ),
           )
         : Scaffold(
-            body: Column(
-              children: [
-                _buildAppHeader(),
-                Expanded(child: bodyContent),
-              ],
-            ),
-            bottomNavigationBar: NavigationBar(
-              selectedIndex: _currentIndex,
-              onDestinationSelected: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
-              },
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.directions_car_outlined),
-                  selectedIcon: Icon(Icons.directions_car),
-                  label: 'Estoque',
+            backgroundColor: Colors.white,
+            body: bodyContent,
+            bottomNavigationBar: Container(
+              decoration: const BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: AppTheme.borderSubtle, width: 1),
                 ),
-                NavigationDestination(
-                  icon: Icon(Icons.bar_chart_outlined),
-                  selectedIcon: Icon(Icons.bar_chart),
-                  label: 'Resumo',
-                ),
-              ],
+              ),
+              child: NavigationBar(
+                selectedIndex: _currentIndex,
+                onDestinationSelected: (index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                },
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.directions_car_outlined),
+                    selectedIcon: Icon(Icons.directions_car),
+                    label: 'Estoque',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.bar_chart_outlined),
+                    selectedIcon: Icon(Icons.bar_chart),
+                    label: 'Resumo',
+                  ),
+                ],
+              ),
             ),
           );
 

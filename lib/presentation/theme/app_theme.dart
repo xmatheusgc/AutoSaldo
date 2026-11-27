@@ -20,7 +20,9 @@ class AppTheme {
   static const Color dangerLight = Color(0xFFFEF2F2); // Red 50
   static const Color dangerBorder = Color(0xFFFECACA); // Red 200
 
-  static const Color bgSurface = Color(0xFFF1F5F9); // Slate 100 mais suave
+  static const Color bgSurface = Colors.white;
+  static const Color desktopBg = Color(0xFFF8FAFC);
+  static const Color sectionDivider = Color(0xFFF1F5F9);
   static const Color cardSurface = Colors.white;
   static const Color textMain = Color(0xFF0F172A); // Slate 900
   static const Color textMuted = Color(0xFF475569); // Slate 600 (>= 6.3:1 em bgSurface)
@@ -143,15 +145,16 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        height: 64,
-        indicatorColor: accentSoft,
+        height: 60,
+        indicatorColor: sectionDivider,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: accentBlue,
+              color: textMain,
             );
           }
           return const TextStyle(
@@ -162,9 +165,9 @@ class AppTheme {
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return const IconThemeData(color: accentBlue, size: 24);
+            return const IconThemeData(color: textMain, size: 22);
           }
-          return const IconThemeData(color: textMuted, size: 24);
+          return const IconThemeData(color: textMuted, size: 22);
         }),
       ),
       snackBarTheme: SnackBarThemeData(

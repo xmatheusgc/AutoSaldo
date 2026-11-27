@@ -5,7 +5,6 @@ import '../../../domain/models/model_performance.dart';
 import '../../../domain/models/vehicle.dart';
 import '../../../domain/services/financial_calculator.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/app_segmented_control.dart';
 
 enum _ModelRankingSort {
   totalProfit,
@@ -74,97 +73,65 @@ class _ModelPerformanceViewState extends State<ModelPerformanceView> {
       };
 
   String _formatAvgDays(double avgDays) {
-    final rounded = avgDays.round();
-    return Formatters.formatDaysCount(rounded);
+    return Formatters.formatDaysCount(avgDays.round());
   }
 
-  Widget _buildHighlightCard({
-    required String title,
-    required IconData icon,
-    required Color accentColor,
-    required Color tintColor,
-    required ModelPerformanceStats stats,
-    required String mainMetric,
-    required String subMetric,
+  Widget _buildCompactDropdown<T>({
+    required String label,
+    required T value,
+    required List<T> items,
+    required String Function(T) labelBuilder,
+    required ValueChanged<T> onSelected,
   }) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => widget.onModelTap(stats),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppTheme.borderSubtle),
+    return PopupMenuButton<T>(
+      initialValue: value,
+      onSelected: onSelected,
+      itemBuilder: (_) => [
+        for (final item in items)
+          PopupMenuItem<T>(
+            value: item,
+            child: Row(
+              children: [
+                if (item == value)
+                  const Icon(Icons.check, size: 16, color: AppTheme.textMain)
+                else
+                  const SizedBox(width: 16),
+                const SizedBox(width: 8),
+                Text(
+                  labelBuilder(item),
+                  style: TextStyle(
+                    fontWeight: item == value ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: tintColor,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(icon, size: 16, color: accentColor),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textMuted,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                stats.displayName,
+      ],
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.sectionDivider,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
                   color: AppTheme.textMain,
                 ),
               ),
-              const SizedBox(height: 4),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  mainMetric,
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    color: accentColor,
-                    fontFeatures: AppTheme.tabularNumbers,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subMetric,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppTheme.textMuted,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppTheme.textMuted),
+          ],
         ),
       ),
     );
@@ -179,7 +146,7 @@ class _ModelPerformanceViewState extends State<ModelPerformanceView> {
           style: const TextStyle(
             fontSize: 11,
             color: AppTheme.textMuted,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 2),
@@ -189,7 +156,7 @@ class _ModelPerformanceViewState extends State<ModelPerformanceView> {
           child: Text(
             value,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w800,
               color: valueColor ?? AppTheme.textMain,
               fontFeatures: AppTheme.tabularNumbers,
@@ -197,6 +164,80 @@ class _ModelPerformanceViewState extends State<ModelPerformanceView> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildHighlightCard({
+    required String title,
+    required ModelPerformanceStats stats,
+    required String mainMetric,
+    required Color accentColor,
+    required String subMetric,
+  }) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => widget.onModelTap(stats),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.borderSubtle),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textMuted,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                stats.displayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.textMain,
+                ),
+              ),
+              const SizedBox(height: 4),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  mainMetric,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: accentColor,
+                    fontFeatures: AppTheme.tabularNumbers,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subMetric,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -208,15 +249,25 @@ class _ModelPerformanceViewState extends State<ModelPerformanceView> {
       window: _window,
     );
 
-    final windowSelector = Wrap(
+    final selectorsRow = Wrap(
       spacing: 8,
       runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        for (final w in ModelAnalyticsWindow.values)
-          AppFilterPill(
-            label: _windowLabel(w),
-            selected: _window == w,
-            onTap: () => setState(() => _window = w),
+        _buildCompactDropdown<ModelAnalyticsWindow>(
+          label: _windowLabel(_window),
+          value: _window,
+          items: ModelAnalyticsWindow.values,
+          labelBuilder: _windowLabel,
+          onSelected: (w) => setState(() => _window = w),
+        ),
+        if (report.totalSoldCount > 0)
+          _buildCompactDropdown<_ModelRankingSort>(
+            label: 'Ordenar: ${_sortLabel(_sort)}',
+            value: _sort,
+            items: _ModelRankingSort.values,
+            labelBuilder: _sortLabel,
+            onSelected: (s) => setState(() => _sort = s),
           ),
       ],
     );
@@ -225,19 +276,19 @@ class _ModelPerformanceViewState extends State<ModelPerformanceView> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          windowSelector,
-          const SizedBox(height: 20),
+          selectorsRow,
+          const SizedBox(height: 24),
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppTheme.borderSubtle),
             ),
             child: const Column(
               children: [
-                Icon(Icons.analytics_outlined, size: 44, color: AppTheme.textLight),
-                SizedBox(height: 12),
+                Icon(Icons.analytics_outlined, size: 42, color: AppTheme.textLight),
+                SizedBox(height: 10),
                 Text(
                   'Sem vendas neste período',
                   style: TextStyle(
@@ -246,9 +297,9 @@ class _ModelPerformanceViewState extends State<ModelPerformanceView> {
                     color: AppTheme.textMain,
                   ),
                 ),
-                SizedBox(height: 6),
+                SizedBox(height: 4),
                 Text(
-                  'Assim que houver veículos vendidos no período selecionado, mostraremos aqui os modelos de giro mais rápido e maior lucro.',
+                  'Nenhuma venda encontrada para o intervalo selecionado.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
                 ),
@@ -262,42 +313,17 @@ class _ModelPerformanceViewState extends State<ModelPerformanceView> {
     final sortedModels = _sortedModels(report.models);
     final isOverallProfitPositive = report.totalProfitCents >= 0;
 
-    final overviewBanner = Container(
-      padding: const EdgeInsets.all(16),
+    final overviewStrip = Container(
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppTheme.borderSubtle),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.insights_outlined, size: 18, color: AppTheme.accentBlue),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Desempenho Consolidado • ${_windowLabel(_window)}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.textMain,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (widget.isDesktopLayout)
-            Row(
+      child: widget.isDesktopLayout
+          ? Row(
               children: [
-                Expanded(
-                  child: _buildMetricCell(
-                    'Vendas',
-                    '${report.totalSoldCount}',
-                  ),
-                ),
+                Expanded(child: _buildMetricCell('Vendas', '${report.totalSoldCount}')),
                 Expanded(
                   child: _buildMetricCell(
                     'Giro médio',
@@ -310,9 +336,8 @@ class _ModelPerformanceViewState extends State<ModelPerformanceView> {
                   child: _buildMetricCell(
                     'Lucro total',
                     '${isOverallProfitPositive ? "+" : "-"}${Formatters.formatCurrency(report.totalProfitCents.abs())}',
-                    valueColor: isOverallProfitPositive
-                        ? AppTheme.successGreen
-                        : AppTheme.dangerRed,
+                    valueColor:
+                        isOverallProfitPositive ? AppTheme.successGreen : AppTheme.dangerRed,
                   ),
                 ),
                 Expanded(
@@ -321,134 +346,117 @@ class _ModelPerformanceViewState extends State<ModelPerformanceView> {
                     report.overallRoiPercent != null
                         ? Formatters.formatPercent(report.overallRoiPercent!)
                         : '--',
-                    valueColor: (report.overallRoiPercent ?? 0) >= 0
-                        ? AppTheme.successGreen
-                        : AppTheme.dangerRed,
+                    valueColor:
+                        (report.overallRoiPercent ?? 0) >= 0 ? AppTheme.successGreen : AppTheme.dangerRed,
                   ),
                 ),
               ],
             )
-          else ...[
-            Row(
+          : Column(
               children: [
-                Expanded(
-                  child: _buildMetricCell(
-                    'Vendas',
-                    '${report.totalSoldCount}',
-                  ),
+                Row(
+                  children: [
+                    Expanded(child: _buildMetricCell('Vendas', '${report.totalSoldCount}')),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildMetricCell(
+                        'Giro médio',
+                        report.overallAvgDaysToSell != null
+                            ? _formatAvgDays(report.overallAvgDaysToSell!)
+                            : '--',
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildMetricCell(
-                    'Giro médio',
-                    report.overallAvgDaysToSell != null
-                        ? _formatAvgDays(report.overallAvgDaysToSell!)
-                        : '--',
-                  ),
+                const Divider(height: 18, color: AppTheme.borderSubtle),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildMetricCell(
+                        'Lucro total',
+                        '${isOverallProfitPositive ? "+" : "-"}${Formatters.formatCurrency(report.totalProfitCents.abs())}',
+                        valueColor:
+                            isOverallProfitPositive ? AppTheme.successGreen : AppTheme.dangerRed,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildMetricCell(
+                        'ROI médio',
+                        report.overallRoiPercent != null
+                            ? Formatters.formatPercent(report.overallRoiPercent!)
+                            : '--',
+                        valueColor: (report.overallRoiPercent ?? 0) >= 0
+                            ? AppTheme.successGreen
+                            : AppTheme.dangerRed,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildMetricCell(
-                    'Lucro total',
-                    '${isOverallProfitPositive ? "+" : "-"}${Formatters.formatCurrency(report.totalProfitCents.abs())}',
-                    valueColor: isOverallProfitPositive
-                        ? AppTheme.successGreen
-                        : AppTheme.dangerRed,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildMetricCell(
-                    'ROI médio',
-                    report.overallRoiPercent != null
-                        ? Formatters.formatPercent(report.overallRoiPercent!)
-                        : '--',
-                    valueColor: (report.overallRoiPercent ?? 0) >= 0
-                        ? AppTheme.successGreen
-                        : AppTheme.dangerRed,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
     );
 
     final highlightCards = <Widget>[
       if (report.fastestModel != null)
         _buildHighlightCard(
           title: 'Giro mais rápido',
-          icon: Icons.bolt,
-          accentColor: AppTheme.accentBlue,
-          tintColor: const Color(0xFFEFF6FF),
           stats: report.fastestModel!,
-          mainMetric: '${_formatAvgDays(report.fastestModel!.avgDaysToSell)} em média',
+          mainMetric: '${_formatAvgDays(report.fastestModel!.avgDaysToSell)} / venda',
+          accentColor: AppTheme.accentBlue,
           subMetric:
-              '${report.fastestModel!.soldCount} ${report.fastestModel!.soldCount == 1 ? "venda" : "vendas"} • ROI ${report.fastestModel!.roiPercent != null ? Formatters.formatPercent(report.fastestModel!.roiPercent!) : "--"}',
+              '${report.fastestModel!.soldCount} ${report.fastestModel!.soldCount == 1 ? "venda" : "vendas"}',
         ),
       if (report.highestAvgProfitModel != null)
         _buildHighlightCard(
           title: 'Maior lucro médio',
-          icon: Icons.trending_up,
+          stats: report.highestAvgProfitModel!,
+          mainMetric:
+              '${report.highestAvgProfitModel!.avgProfitCents >= 0 ? "+" : "-"}${Formatters.formatCurrency(report.highestAvgProfitModel!.avgProfitCents.abs())}',
           accentColor: report.highestAvgProfitModel!.avgProfitCents >= 0
               ? AppTheme.successGreen
               : AppTheme.dangerRed,
-          tintColor: AppTheme.successLight,
-          stats: report.highestAvgProfitModel!,
-          mainMetric:
-              '${report.highestAvgProfitModel!.avgProfitCents >= 0 ? "+" : "-"}${Formatters.formatCurrency(report.highestAvgProfitModel!.avgProfitCents.abs())} / carro',
-          subMetric:
-              '${report.highestAvgProfitModel!.soldCount} ${report.highestAvgProfitModel!.soldCount == 1 ? "venda" : "vendas"} • Giro ${_formatAvgDays(report.highestAvgProfitModel!.avgDaysToSell)}',
+          subMetric: 'Giro ${_formatAvgDays(report.highestAvgProfitModel!.avgDaysToSell)}',
         ),
       if (report.bestRoiModel != null)
         _buildHighlightCard(
           title: 'Melhor ROI',
-          icon: Icons.percent,
-          accentColor: (report.bestRoiModel!.roiPercent ?? 0) >= 0
-              ? AppTheme.primaryDark
-              : AppTheme.dangerRed,
-          tintColor: const Color(0xFFF1F5F9),
           stats: report.bestRoiModel!,
           mainMetric: Formatters.formatPercent(report.bestRoiModel!.roiPercent!),
+          accentColor: (report.bestRoiModel!.roiPercent ?? 0) >= 0
+              ? AppTheme.textMain
+              : AppTheme.dangerRed,
           subMetric:
-              '${report.bestRoiModel!.soldCount} ${report.bestRoiModel!.soldCount == 1 ? "venda" : "vendas"} • Giro ${_formatAvgDays(report.bestRoiModel!.avgDaysToSell)}',
+              '${report.bestRoiModel!.soldCount} ${report.bestRoiModel!.soldCount == 1 ? "venda" : "vendas"}',
         ),
       if (report.highestTotalProfitModel != null)
         _buildHighlightCard(
-          title: 'Maior lucro acumulado',
-          icon: Icons.workspace_premium_outlined,
-          accentColor: AppTheme.warningOrange,
-          tintColor: const Color(0xFFFFFBEB),
+          title: 'Lucro acumulado',
           stats: report.highestTotalProfitModel!,
           mainMetric:
               '${report.highestTotalProfitModel!.totalProfitCents >= 0 ? "+" : "-"}${Formatters.formatCurrency(report.highestTotalProfitModel!.totalProfitCents.abs())}',
+          accentColor: report.highestTotalProfitModel!.totalProfitCents >= 0
+              ? AppTheme.successGreen
+              : AppTheme.dangerRed,
           subMetric:
-              '${report.highestTotalProfitModel!.soldCount} ${report.highestTotalProfitModel!.soldCount == 1 ? "venda" : "vendas"} no total',
+              '${report.highestTotalProfitModel!.soldCount} ${report.highestTotalProfitModel!.soldCount == 1 ? "venda" : "vendas"}',
         ),
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        windowSelector,
-        const SizedBox(height: 14),
-        overviewBanner,
+        selectorsRow,
+        const SizedBox(height: 12),
+        overviewStrip,
         const SizedBox(height: 16),
 
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4),
-          child: Text(
-            'Destaques',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.textMain,
-            ),
+        const Text(
+          'Destaques',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.textMain,
           ),
         ),
         const SizedBox(height: 8),
@@ -456,7 +464,7 @@ class _ModelPerformanceViewState extends State<ModelPerformanceView> {
           builder: (context, constraints) {
             final cols = widget.isDesktopLayout
                 ? (constraints.maxWidth >= 900 ? 4 : 2)
-                : (constraints.maxWidth >= 460 ? 2 : 1);
+                : 2;
             const spacing = 10.0;
             final itemWidth = (constraints.maxWidth - (spacing * (cols - 1))) / cols;
             return Wrap(
@@ -471,214 +479,47 @@ class _ModelPerformanceViewState extends State<ModelPerformanceView> {
         ),
         const SizedBox(height: 20),
 
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Ranking por Modelo (${sortedModels.length})',
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.textMain,
-              ),
-            ),
-          ],
+        Text(
+          'Ranking por Modelo (${sortedModels.length})',
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.textMain,
+          ),
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final s in _ModelRankingSort.values)
-              AppFilterPill(
-                label: _sortLabel(s),
-                selected: _sort == s,
-                onTap: () => setState(() => _sort = s),
-              ),
-          ],
+
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppTheme.borderSubtle),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              for (int i = 0; i < sortedModels.length; i++) ...[
+                if (i > 0)
+                  const Divider(height: 1, thickness: 1, color: AppTheme.borderSubtle),
+                _buildModelRankRow(i + 1, sortedModels[i]),
+              ],
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
-
-        ...sortedModels.asMap().entries.map((entry) {
-          final rank = entry.key + 1;
-          final m = entry.value;
-          final isPositive = m.totalProfitCents >= 0;
-
-          return Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            child: Material(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () => widget.onModelTap(m),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppTheme.borderSubtle),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 26,
-                            height: 26,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: rank <= 3 ? AppTheme.primaryDark : const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '#$rank',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: rank <= 3 ? Colors.white : AppTheme.textMuted,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              m.displayName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: AppTheme.textMain,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              m.soldCount == 1 ? '1 venda' : '${m.soldCount} vendas',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textMain,
-                              ),
-                            ),
-                          ),
-                          if (m.inStockCount > 0) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEFF6FF),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                '${m.inStockCount} no pátio',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.accentBlue,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildMetricCell(
-                              'Lucro total',
-                              '${isPositive ? "+" : "-"}${Formatters.formatCurrency(m.totalProfitCents.abs())}',
-                              valueColor: isPositive
-                                  ? AppTheme.successGreen
-                                  : AppTheme.dangerRed,
-                            ),
-                          ),
-                          Expanded(
-                            child: _buildMetricCell(
-                              'Lucro médio',
-                              '${m.avgProfitCents >= 0 ? "+" : "-"}${Formatters.formatCurrency(m.avgProfitCents.abs())}',
-                              valueColor: m.avgProfitCents >= 0
-                                  ? AppTheme.successGreen
-                                  : AppTheme.dangerRed,
-                            ),
-                          ),
-                          Expanded(
-                            child: _buildMetricCell(
-                              'Giro médio',
-                              _formatAvgDays(m.avgDaysToSell),
-                              valueColor: AppTheme.primaryDark,
-                            ),
-                          ),
-                          Expanded(
-                            child: _buildMetricCell(
-                              'ROI',
-                              m.roiPercent != null
-                                  ? Formatters.formatPercent(m.roiPercent!)
-                                  : '--',
-                              valueColor: (m.roiPercent ?? 0) >= 0
-                                  ? AppTheme.successGreen
-                                  : AppTheme.dangerRed,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              'Gasto médio pós-compra: ${Formatters.formatCurrency(m.avgExpenseCents)}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppTheme.textMuted,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Ver vendas >',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.accentBlue,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        }),
 
         if (report.brands.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4),
-            child: Text(
-              'Desempenho por Marca',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.textMain,
-              ),
+          const SizedBox(height: 20),
+          const Text(
+            'Desempenho por Marca',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textMain,
             ),
           ),
           const SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
@@ -687,59 +528,64 @@ class _ModelPerformanceViewState extends State<ModelPerformanceView> {
             child: Column(
               children: [
                 for (var i = 0; i < report.brands.length; i++) ...[
-                  if (i > 0) const Divider(height: 16, color: AppTheme.borderSubtle),
+                  if (i > 0)
+                    const Divider(height: 1, thickness: 1, color: AppTheme.borderSubtle),
                   Builder(
                     builder: (_) {
                       final b = report.brands[i];
                       final pos = b.totalProfitCents >= 0;
-                      return Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    b.brand,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.textMain,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${b.soldCount} ${b.soldCount == 1 ? "venda" : "vendas"} • Giro médio ${_formatAvgDays(b.avgDaysToSell)}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
-                                  b.brand,
-                                  style: const TextStyle(
-                                    fontSize: 14,
+                                  '${pos ? "+" : "-"}${Formatters.formatCurrency(b.totalProfitCents.abs())}',
+                                  style: TextStyle(
+                                    fontSize: 13.5,
                                     fontWeight: FontWeight.w800,
-                                    color: AppTheme.textMain,
+                                    color: pos ? AppTheme.successGreen : AppTheme.dangerRed,
+                                    fontFeatures: AppTheme.tabularNumbers,
                                   ),
                                 ),
-                                Text(
-                                  '${b.soldCount} ${b.soldCount == 1 ? "venda" : "vendas"} • Giro médio ${_formatAvgDays(b.avgDaysToSell)}',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: AppTheme.textMuted,
+                                if (b.roiPercent != null)
+                                  Text(
+                                    'ROI ${Formatters.formatPercent(b.roiPercent!)}',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: pos ? AppTheme.successGreen : AppTheme.dangerRed,
+                                      fontFeatures: AppTheme.tabularNumbers,
+                                    ),
                                   ),
-                                ),
                               ],
                             ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                '${pos ? "+" : "-"}${Formatters.formatCurrency(b.totalProfitCents.abs())}',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                  color: pos ? AppTheme.successGreen : AppTheme.dangerRed,
-                                  fontFeatures: AppTheme.tabularNumbers,
-                                ),
-                              ),
-                              if (b.roiPercent != null)
-                                Text(
-                                  'ROI ${Formatters.formatPercent(b.roiPercent!)}',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: pos ? AppTheme.successGreen : AppTheme.dangerRed,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ],
+                          ],
+                        ),
                       );
                     },
                   ),
@@ -749,6 +595,125 @@ class _ModelPerformanceViewState extends State<ModelPerformanceView> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildModelRankRow(int rank, ModelPerformanceStats m) {
+    final isPositive = m.totalProfitCents >= 0;
+    final totalProfitColor = isPositive ? AppTheme.successGreen : AppTheme.dangerRed;
+
+    return Material(
+      color: Colors.white,
+      child: InkWell(
+        onTap: () => widget.onModelTap(m),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  SizedBox(
+                    width: 28,
+                    child: Text(
+                      '#$rank',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: rank <= 3 ? AppTheme.textMain : AppTheme.textMuted,
+                        fontFeatures: AppTheme.tabularNumbers,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      m.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textMain,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    '${isPositive ? "+" : "-"}${Formatters.formatCurrency(m.totalProfitCents.abs())}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: totalProfitColor,
+                      fontFeatures: AppTheme.tabularNumbers,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.only(left: 28),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 2,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            '${m.soldCount} ${m.soldCount == 1 ? "venda" : "vendas"} • Giro ${_formatAvgDays(m.avgDaysToSell)}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textMuted,
+                              fontFeatures: AppTheme.tabularNumbers,
+                            ),
+                          ),
+                          Text(
+                            'Média ${m.avgProfitCents >= 0 ? "+" : "-"}${Formatters.formatCurrency(m.avgProfitCents.abs())}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textMuted,
+                              fontFeatures: AppTheme.tabularNumbers,
+                            ),
+                          ),
+                          if (m.inStockCount > 0)
+                            Text(
+                              '• ${m.inStockCount} pátio',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.accentBlue,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (m.roiPercent != null)
+                      Text(
+                        'ROI ${Formatters.formatPercent(m.roiPercent!)}',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: (m.roiPercent ?? 0) >= 0
+                              ? AppTheme.successGreen
+                              : AppTheme.dangerRed,
+                          fontFeatures: AppTheme.tabularNumbers,
+                        ),
+                      ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right, size: 16, color: AppTheme.textLight),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -482,55 +482,43 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
                     ],
 
                     // Opções de recebimento (À vista, Entrada + Restante, A receber)
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.borderSubtle),
+                    const Divider(height: 16, color: AppTheme.borderSubtle),
+                    const Text(
+                      'Forma de recebimento',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textMain,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Text(
-                            'Forma de recebimento',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.textMain,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              _buildPaymentOptionPill(
-                                option: _SalePaymentOption.fullCash,
-                                label: 'À vista',
-                                icon: Icons.check_circle_outline,
-                              ),
-                              const SizedBox(width: 6),
-                              _buildPaymentOptionPill(
-                                option: _SalePaymentOption.downPayment,
-                                label: 'Entrada',
-                                icon: Icons.call_split_outlined,
-                              ),
-                              const SizedBox(width: 6),
-                              _buildPaymentOptionPill(
-                                option: _SalePaymentOption.credit,
-                                label: 'A receber',
-                                icon: Icons.schedule_outlined,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            paymentHelperText,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textMuted,
-                            ),
-                          ),
-                        ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _buildPaymentOptionPill(
+                          option: _SalePaymentOption.fullCash,
+                          label: 'À vista',
+                          icon: Icons.check_circle_outline,
+                        ),
+                        const SizedBox(width: 6),
+                        _buildPaymentOptionPill(
+                          option: _SalePaymentOption.downPayment,
+                          label: 'Entrada',
+                          icon: Icons.call_split_outlined,
+                        ),
+                        const SizedBox(width: 6),
+                        _buildPaymentOptionPill(
+                          option: _SalePaymentOption.credit,
+                          label: 'A receber',
+                          icon: Icons.schedule_outlined,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      paymentHelperText,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textMuted,
                       ),
                     ),
 
@@ -579,72 +567,58 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
                     ],
                     const SizedBox(height: 14),
 
-                    // Dados do comprador (opcional e recolhível para agilizar vendas rápidas)
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.borderSubtle),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () {
-                              setState(() {
-                                _buyerExpanded = !_buyerExpanded;
-                              });
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              child: Row(
+                    // Dados do comprador (opcional e recolhível)
+                    const Divider(height: 12, color: AppTheme.borderSubtle),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: () {
+                        setState(() {
+                          _buyerExpanded = !_buyerExpanded;
+                        });
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.person_outline, size: 18, color: AppTheme.accentBlue),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Icon(Icons.person_outline, size: 18, color: AppTheme.accentBlue),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Dados do comprador (opcional)',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700,
-                                            color: AppTheme.textMain,
-                                          ),
-                                        ),
-                                        if (!_buyerExpanded)
-                                          const Text(
-                                            'Nome, telefone e CPF/CNPJ',
-                                            style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                                          ),
-                                      ],
+                                  const Text(
+                                    'Dados do comprador (opcional)',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.textMain,
                                     ),
                                   ),
-                                  Icon(
-                                    _buyerExpanded ? Icons.expand_less : Icons.expand_more,
-                                    size: 20,
-                                    color: AppTheme.textMuted,
-                                  ),
+                                  if (!_buyerExpanded)
+                                    const Text(
+                                      'Nome, telefone e CPF/CNPJ',
+                                      style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                                    ),
                                 ],
                               ),
                             ),
-                          ),
-                          if (_buyerExpanded) ...[
-                            const Divider(height: 1, color: AppTheme.borderSubtle),
-                            Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: BuyerFieldsSection(
-                                nameController: _buyerNameController,
-                                phoneController: _buyerPhoneController,
-                                documentController: _buyerDocumentController,
-                              ),
+                            Icon(
+                              _buyerExpanded ? Icons.expand_less : Icons.expand_more,
+                              size: 20,
+                              color: AppTheme.textMuted,
                             ),
                           ],
-                        ],
+                        ),
                       ),
                     ),
+                    if (_buyerExpanded) ...[
+                      const SizedBox(height: 8),
+                      BuyerFieldsSection(
+                        nameController: _buyerNameController,
+                        phoneController: _buyerPhoneController,
+                        documentController: _buyerDocumentController,
+                      ),
+                    ],
                     const SizedBox(height: 20),
 
                     if (_error != null) ...[

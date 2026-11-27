@@ -186,3 +186,116 @@ class AppFilterPill extends StatelessWidget {
     );
   }
 }
+
+/// Barra de abas limpa com linha inferior (estilo Uber Início / Material Primary Tabs).
+/// Não adiciona `label` duplicado em `Semantics` para preservar acessibilidade e buscas por rótulo.
+class AppUnderlineTabBar<T> extends StatelessWidget {
+  final List<AppSegmentedItem<T>> items;
+  final T selectedValue;
+  final ValueChanged<T> onChanged;
+  final EdgeInsetsGeometry padding;
+  final bool showBottomBorder;
+
+  const AppUnderlineTabBar({
+    super.key,
+    required this.items,
+    required this.selectedValue,
+    required this.onChanged,
+    this.padding = const EdgeInsets.symmetric(horizontal: 16),
+    this.showBottomBorder = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: showBottomBorder
+          ? const BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                bottom: BorderSide(color: AppTheme.borderSubtle, width: 1),
+              ),
+            )
+          : const BoxDecoration(color: Colors.white),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: padding,
+        child: Row(
+          children: [
+            for (int i = 0; i < items.length; i++) ...[
+              if (i > 0) const SizedBox(width: 20),
+              _UnderlineTabButton<T>(
+                item: items[i],
+                selected: items[i].value == selectedValue,
+                onTap: () => onChanged(items[i].value),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UnderlineTabButton<T> extends StatelessWidget {
+  final AppSegmentedItem<T> item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _UnderlineTabButton({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? AppTheme.textMain : AppTheme.textMuted;
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 40),
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: selected ? AppTheme.textMain : Colors.transparent,
+                width: 2.5,
+              ),
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (item.icon != null) ...[
+                Icon(item.icon, size: 15, color: color),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                item.label,
+                maxLines: 1,
+                strutStyle: const StrutStyle(
+                  fontSize: 13.5,
+                  height: 1.2,
+                  forceStrutHeight: true,
+                ),
+                textHeightBehavior: AppSegmentedControl._heightBehavior,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: color,
+                  letterSpacing: -0.1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

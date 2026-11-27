@@ -203,8 +203,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(NavigationBar), findsOneWidget);
-      expect(find.text('Olá, Teste'), findsOneWidget);
+      expect(find.text('Olá, Teste'), findsNothing);
       expect(find.byType(FloatingActionButton), findsOneWidget);
+      expect(find.byTooltip('Cadastrar veículo'), findsOneWidget);
+      expect(find.byTooltip('Minha Conta'), findsOneWidget);
 
       // Switch to Resumo on mobile
       await tester.tap(find.text('Resumo'));

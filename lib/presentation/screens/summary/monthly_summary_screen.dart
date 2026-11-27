@@ -12,7 +12,6 @@ import '../../../domain/services/csv_exporter.dart';
 import '../../../domain/services/financial_calculator.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_segmented_control.dart';
-import '../../widgets/car_plate_widget.dart';
 import '../../widgets/responsive_layout.dart';
 import '../stock/vehicle_detail_screen.dart';
 import 'csv_download_helper.dart';
@@ -25,6 +24,8 @@ class MonthlySummaryScreen extends StatefulWidget {
   final String? userUid;
   final String? userEmail;
   final FipeService? fipeService;
+  final VoidCallback? onOpenAccount;
+  final String? userInitial;
 
   const MonthlySummaryScreen({
     super.key,
@@ -34,6 +35,8 @@ class MonthlySummaryScreen extends StatefulWidget {
     this.userUid,
     this.userEmail,
     this.fipeService,
+    this.onOpenAccount,
+    this.userInitial,
   });
 
   @override
@@ -213,7 +216,11 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                   child: ListView.separated(
                     shrinkWrap: true,
                     itemCount: items.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    separatorBuilder: (_, _) => const Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: AppTheme.borderSubtle,
+                    ),
                     itemBuilder: (_, index) => itemBuilder(ctx, items[index]),
                   ),
                 ),
@@ -232,24 +239,27 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
     required Color trailingColor,
   }) {
     return Material(
-      color: const Color(0xFFF8FAFC),
-      borderRadius: BorderRadius.circular(12),
+      color: Colors.white,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
         onTap: () => _openVehicleDetail(sheetContext, vehicle),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.borderSubtle),
-          ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 11),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  CarPlateWidget(plate: vehicle.plate, fontSize: 12),
+                  Text(
+                    vehicle.formattedPlate,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textMuted,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
                   const SizedBox(width: 8),
                   Flexible(
                     child: FittedBox(
@@ -258,7 +268,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                       child: Text(
                         trailingLabel,
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 13.5,
                           fontWeight: FontWeight.w800,
                           color: trailingColor,
                           fontFeatures: AppTheme.tabularNumbers,
@@ -268,14 +278,14 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 3),
               Text(
                 vehicle.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
                   color: AppTheme.textMain,
                 ),
               ),
@@ -287,20 +297,15 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
                     ),
                   ),
-                  if (widget.userUid != null) ...[
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Abrir >',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.accentBlue,
-                      ),
+                  if (widget.userUid != null)
+                    const Icon(
+                      Icons.chevron_right,
+                      size: 16,
+                      color: AppTheme.textLight,
                     ),
-                  ],
                 ],
               ),
             ],
@@ -537,203 +542,203 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
 
             final isNetPositive = summary.monthNetCashCents >= 0;
             final isProfitPositive = summary.soldVehiclesProfitCents >= 0;
-            final isDesktopLayout =
-                MediaQuery.sizeOf(context).width >= 840;
+            final isDesktopLayout = MediaQuery.sizeOf(context).width >= 840;
 
-            final headerRow = SizedBox(
-              width: double.infinity,
-              child: Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 12,
-                runSpacing: 10,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Resumo Financeiro',
-                        style: TextStyle(
-                          fontSize: isDesktopLayout ? 24 : 22,
-                          fontWeight: FontWeight.w900,
-                          color: AppTheme.textMain,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const Text(
-                        'Lucro, entradas e saídas consolidadas',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textMuted,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.file_download_outlined, size: 18),
-                    label: const Text(
-                      'Exportar CSV',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.primaryDark,
-                      backgroundColor: Colors.white,
-                      side: const BorderSide(color: AppTheme.borderInteractive),
-                      minimumSize: const Size(136, 44),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: () => _exportCsv(vehicles, expenses),
-                  ),
-                ],
-              ),
-            );
-
-            final monthSelector = Align(
-              alignment: Alignment.center,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: isDesktopLayout ? 460 : double.infinity,
-                ),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
+            final headerBar = Container(
+              decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.borderSubtle),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withAlpha(6),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
+                border: Border(
+                  bottom: BorderSide(color: AppTheme.borderSubtle, width: 1),
+                ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-                    onPressed: _previousMonth,
-                    tooltip: 'Mês anterior',
-                    style: IconButton.styleFrom(
-                      backgroundColor: const Color(0xFFF1F5F9),
+              child: SafeArea(
+                bottom: false,
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: ResponsiveBreakpoints.maxContentWidth,
                     ),
-                  ),
-                  Column(
-                    children: [
-                      Text(
-                        Formatters.monthName(_selectedMonth).toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.8,
-                          color: AppTheme.textMain,
-                        ),
-                      ),
-                      Text(
-                        '$_selectedYear',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textMuted,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.arrow_forward_ios, size: 18),
-                    onPressed: _nextMonth,
-                    tooltip: 'Próximo mês',
-                    style: IconButton.styleFrom(
-                      backgroundColor: const Color(0xFFF1F5F9),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-
-            final profitCard = Material(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: summary.soldCount > 0
-                    ? () => _showSoldVehiclesDrillDown(vehicles, expensesByVehicle)
-                    : null,
-                child: Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isProfitPositive ? AppTheme.successBorder : AppTheme.dangerBorder,
-                      width: 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: (isProfitPositive ? AppTheme.successGreen : AppTheme.dangerRed)
-                            .withAlpha(12),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: isProfitPositive
-                                        ? AppTheme.successLight
-                                        : AppTheme.dangerLight,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Icon(
-                                    isProfitPositive ? Icons.trending_up : Icons.trending_down,
-                                    color: isProfitPositive
-                                        ? AppTheme.successGreen
-                                        : AppTheme.dangerRed,
-                                    size: 22,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            isDesktopLayout ? 24 : 16,
+                            isDesktopLayout ? 14 : 10,
+                            isDesktopLayout ? 24 : 12,
+                            4,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Resumo Financeiro',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: isDesktopLayout ? 22 : 20,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppTheme.textMain,
+                                    letterSpacing: -0.5,
                                   ),
                                 ),
-                                const SizedBox(width: 10),
-                                const Expanded(
-                                  child: Text(
-                                    'Lucro das Vendas do Mês',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppTheme.textMain,
+                              ),
+                              OutlinedButton.icon(
+                                icon: const Icon(Icons.file_download_outlined, size: 17),
+                                label: const Text(
+                                  'Exportar CSV',
+                                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.textMain,
+                                  backgroundColor: Colors.white,
+                                  side: const BorderSide(color: AppTheme.borderInteractive),
+                                  minimumSize: const Size(110, 38),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                onPressed: () => _exportCsv(vehicles, expenses),
+                              ),
+                              if (!isDesktopLayout && widget.onOpenAccount != null) ...[
+                                const SizedBox(width: 4),
+                                Tooltip(
+                                  message: 'Minha Conta',
+                                  child: InkWell(
+                                    onTap: widget.onOpenAccount,
+                                    borderRadius: BorderRadius.circular(22),
+                                    child: SizedBox(
+                                      width: 40,
+                                      height: 40,
+                                      child: Center(
+                                        child: CircleAvatar(
+                                          radius: 16,
+                                          backgroundColor: AppTheme.sectionDivider,
+                                          child: Text(
+                                            widget.userInitial ?? 'U',
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppTheme.textMain,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
                               ],
-                            ),
+                            ],
+                          ),
+                        ),
+                        AppUnderlineTabBar<int>(
+                          selectedValue: _selectedSection,
+                          padding: EdgeInsets.symmetric(horizontal: isDesktopLayout ? 24 : 16),
+                          showBottomBorder: false,
+                          onChanged: (idx) => setState(() => _selectedSection = idx),
+                          items: const [
+                            AppSegmentedItem(value: 0, label: 'Resumo do Mês'),
+                            AppSegmentedItem(value: 1, label: 'Por Modelo'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+
+            final monthSelector = Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: isDesktopLayout ? 360 : double.infinity,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left_rounded, size: 22),
+                      onPressed: _previousMonth,
+                      tooltip: 'Mês anterior',
+                      constraints: const BoxConstraints(minWidth: 42, minHeight: 42),
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppTheme.sectionDivider,
+                        foregroundColor: AppTheme.textMain,
+                      ),
+                    ),
+                    Text(
+                      '${Formatters.monthName(_selectedMonth).toUpperCase()} $_selectedYear',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
+                        color: AppTheme.textMain,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right_rounded, size: 22),
+                      onPressed: _nextMonth,
+                      tooltip: 'Próximo mês',
+                      constraints: const BoxConstraints(minWidth: 42, minHeight: 42),
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppTheme.sectionDivider,
+                        foregroundColor: AppTheme.textMain,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+
+            final profitCard = Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: summary.soldCount > 0
+                    ? () => _showSoldVehiclesDrillDown(vehicles, expensesByVehicle)
+                    : null,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isProfitPositive ? AppTheme.successBorder : AppTheme.dangerBorder,
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            isProfitPositive ? Icons.trending_up : Icons.trending_down,
+                            color: isProfitPositive ? AppTheme.successGreen : AppTheme.dangerRed,
+                            size: 19,
                           ),
                           const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'Lucro das Vendas do Mês',
+                              style: TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.textMain,
+                              ),
+                            ),
+                          ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
+                              color: AppTheme.sectionDivider,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               summary.soldCount == 1 ? '1 venda' : '${summary.soldCount} vendas',
                               style: const TextStyle(
-                                fontSize: 12,
+                                fontSize: 11.5,
                                 fontWeight: FontWeight.w700,
                                 color: AppTheme.textMuted,
                               ),
@@ -741,92 +746,79 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              '${isProfitPositive ? "+" : "-"}${Formatters.formatCurrency(summary.soldVehiclesProfitCents.abs())}',
-                              style: TextStyle(
-                                fontSize: isDesktopLayout ? 34 : 30,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.5,
-                                color: isProfitPositive
-                                    ? AppTheme.successGreen
-                                    : AppTheme.dangerRed,
-                                fontFeatures: AppTheme.tabularNumbers,
-                              ),
-                            ),
+                      const SizedBox(height: 12),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '${isProfitPositive ? "+" : "-"}${Formatters.formatCurrency(summary.soldVehiclesProfitCents.abs())}',
+                          style: TextStyle(
+                            fontSize: isDesktopLayout ? 32 : 28,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.6,
+                            color: isProfitPositive ? AppTheme.successGreen : AppTheme.dangerRed,
+                            fontFeatures: AppTheme.tabularNumbers,
                           ),
-                          const SizedBox(height: 6),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              if (summary.soldInMonthRoiPercent != null)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: isProfitPositive
-                                        ? AppTheme.successLight
-                                        : AppTheme.dangerLight,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    'ROI: ${Formatters.formatPercent(summary.soldInMonthRoiPercent!)}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                if (summary.soldInMonthRoiPercent != null)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                    decoration: BoxDecoration(
                                       color: isProfitPositive
-                                          ? AppTheme.successGreen
-                                          : AppTheme.dangerRed,
+                                          ? AppTheme.successLight
+                                          : AppTheme.dangerLight,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      'ROI ${Formatters.formatPercent(summary.soldInMonthRoiPercent!)}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: isProfitPositive
+                                            ? AppTheme.successGreen
+                                            : AppTheme.dangerRed,
+                                        fontFeatures: AppTheme.tabularNumbers,
+                                      ),
+                                    ),
+                                  ),
+                                if (summary.avgDaysToSell != null)
+                                  Text(
+                                    'Giro médio ${Formatters.formatDaysCount(summary.avgDaysToSell!.round())}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textMuted,
                                       fontFeatures: AppTheme.tabularNumbers,
                                     ),
                                   ),
-                                ),
-                              if (summary.avgDaysToSell != null)
-                                Text(
-                                  'Giro médio: ${Formatters.formatDaysCount(summary.avgDaysToSell!.round())}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textMuted,
-                                    fontFeatures: AppTheme.tabularNumbers,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              const Expanded(
-                                child: Text(
-                                  'Valor final das vendas menos o custo total investido nos carros.',
-                                  style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                                ),
-                              ),
-                              if (summary.soldCount > 0) ...[
-                                const SizedBox(width: 8),
-                                const Text(
-                                  'Ver carros',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppTheme.accentBlue,
-                                  ),
-                                ),
-                                const Icon(
-                                  Icons.chevron_right,
-                                  size: 16,
-                                  color: AppTheme.accentBlue,
-                                ),
                               ],
-                            ],
+                            ),
                           ),
+                          if (summary.soldCount > 0) ...[
+                            const Text(
+                              'Ver carros',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.accentBlue,
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right,
+                              size: 16,
+                              color: AppTheme.accentBlue,
+                            ),
+                          ],
                         ],
                       ),
                     ],
@@ -836,322 +828,146 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
             );
 
             final cashFlowCard = Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.borderSubtle),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withAlpha(6),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
+              padding: EdgeInsets.all(isDesktopLayout ? 18 : 0),
+              decoration: isDesktopLayout
+                  ? BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppTheme.borderSubtle),
+                    )
+                  : const BoxDecoration(color: Colors.white),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Movimento de Dinheiro no Mês',
+                    'Fluxo de Caixa no Mês',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
                       color: AppTheme.textMain,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'O que realmente entrou e saiu do seu caixa neste período.',
-                    style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0FDF4),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.successBorder.withAlpha(120)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.arrow_downward, color: AppTheme.successGreen, size: 20),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Entradas no mês',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.textMain,
-                                ),
-                              ),
-                              Text(
-                                'Pagamentos recebidos',
-                                style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          '+${Formatters.formatCurrency(summary.monthIncomeCents)}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.successGreen,
-                            fontFeatures: AppTheme.tabularNumbers,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                   const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFEF2F2),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.dangerBorder.withAlpha(120)),
-                    ),
+                  _buildCashRow(
+                    icon: Icons.arrow_downward_rounded,
+                    iconColor: AppTheme.successGreen,
+                    label: 'Entradas',
+                    value: '+${Formatters.formatCurrency(summary.monthIncomeCents)}',
+                    valueColor: AppTheme.successGreen,
+                  ),
+                  const Divider(height: 1, thickness: 1, color: AppTheme.borderSubtle),
+                  _buildCashRow(
+                    icon: Icons.arrow_upward_rounded,
+                    iconColor: AppTheme.dangerRed,
+                    label: 'Saídas',
+                    value: '-${Formatters.formatCurrency(summary.monthExpensesCents)}',
+                    valueColor: AppTheme.dangerRed,
+                  ),
+                  const Divider(height: 1, thickness: 1, color: AppTheme.borderSubtle),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
                     child: Row(
                       children: [
-                        const Icon(Icons.arrow_upward, color: AppTheme.dangerRed, size: 20),
-                        const SizedBox(width: 10),
                         const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Saídas no mês',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.textMain,
-                                ),
-                              ),
-                              Text(
-                                'Compras e despesas pagas',
-                                style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                              ),
-                            ],
+                          child: Text(
+                            'Saldo do período',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.textMain,
+                            ),
                           ),
                         ),
-                        Text(
-                          '-${Formatters.formatCurrency(summary.monthExpensesCents)}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.dangerRed,
-                            fontFeatures: AppTheme.tabularNumbers,
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              '${isNetPositive ? "+" : "-"}${Formatters.formatCurrency(summary.monthNetCashCents.abs())}',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: isNetPositive ? AppTheme.successGreen : AppTheme.dangerRed,
+                                fontFeatures: AppTheme.tabularNumbers,
+                              ),
+                            ),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  const Divider(height: 26, color: AppTheme.borderSubtle),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Sobrou no período:',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.textMain,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${isNetPositive ? "+" : "-"}${Formatters.formatCurrency(summary.monthNetCashCents.abs())}',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: isNetPositive ? AppTheme.successGreen : AppTheme.dangerRed,
-                          fontFeatures: AppTheme.tabularNumbers,
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),
             );
 
-            final stockPositionCard = Material(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: summary.stockCount > 0
-                    ? () => _showStockDrillDown(vehicles, expensesByVehicle)
-                    : null,
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.borderSubtle),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.directions_car_filled, size: 18, color: AppTheme.accentBlue),
-                          const SizedBox(width: 6),
-                          const Expanded(
-                            child: Text(
-                              'No Pátio',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textMuted,
-                              ),
-                            ),
-                          ),
-                          if (summary.stockCount > 0)
-                            const Icon(Icons.chevron_right, size: 16, color: AppTheme.textLight),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          Formatters.formatCurrency(summary.currentStockInvestmentCents),
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.textMain,
-                            fontFeatures: AppTheme.tabularNumbers,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${summary.stockCount} ${summary.stockCount == 1 ? "carro" : "carros"} em estoque',
-                        style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                      ),
-                      if (summary.stagnantStockCount > 0) ...[
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.warningLight,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppTheme.warningBorder),
-                          ),
-                          child: Text(
-                            '${summary.stagnantStockCount} há +45d',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.warningOrange,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            );
-
-            final toReceiveCard = Material(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: summary.pendingReceiveVehiclesCount > 0
-                    ? () => _showPendingReceivablesDrillDown(vehicles)
-                    : null,
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.borderSubtle),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.hourglass_bottom, size: 18, color: AppTheme.warningOrange),
-                          const SizedBox(width: 6),
-                          const Expanded(
-                            child: Text(
-                              'A Receber',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textMuted,
-                              ),
-                            ),
-                          ),
-                          if (summary.pendingReceiveVehiclesCount > 0)
-                            const Icon(Icons.chevron_right, size: 16, color: AppTheme.textLight),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          Formatters.formatCurrency(summary.toReceiveTodayCents),
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: summary.toReceiveTodayCents > 0
-                                ? AppTheme.warningOrange
-                                : AppTheme.successGreen,
-                            fontFeatures: AppTheme.tabularNumbers,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        summary.pendingReceiveVehiclesCount == 0
-                            ? 'Nenhuma venda em aberto'
-                            : '${summary.pendingReceiveVehiclesCount} ${summary.pendingReceiveVehiclesCount == 1 ? "venda em aberto" : "vendas em aberto"}',
-                        style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-
-            final turnoverCard = Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.borderSubtle),
-              ),
+            final positionRows = Container(
+              padding: EdgeInsets.all(isDesktopLayout ? 16 : 0),
+              decoration: isDesktopLayout
+                  ? BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppTheme.borderSubtle),
+                    )
+                  : const BoxDecoration(color: Colors.white),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.speed_outlined, size: 18, color: AppTheme.primaryDark),
-                      SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'Giro & Saúde do Pátio',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textMuted,
-                          ),
-                        ),
-                      ),
-                    ],
+                  const Text(
+                    'Posição Geral (Hoje)',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textMain,
+                    ),
                   ),
+                  const SizedBox(height: 8),
+                  _buildPositionTile(
+                    icon: Icons.directions_car_outlined,
+                    iconColor: AppTheme.textMain,
+                    title: 'No Pátio',
+                    subtitle:
+                        '${summary.stockCount} ${summary.stockCount == 1 ? "carro" : "carros"} em estoque${summary.stagnantStockCount > 0 ? " • ${summary.stagnantStockCount} há +45d" : ""}',
+                    subtitleColor: summary.stagnantStockCount > 0
+                        ? AppTheme.warningOrange
+                        : AppTheme.textMuted,
+                    value: Formatters.formatCurrency(summary.currentStockInvestmentCents),
+                    valueColor: AppTheme.textMain,
+                    onTap: summary.stockCount > 0
+                        ? () => _showStockDrillDown(vehicles, expensesByVehicle)
+                        : null,
+                  ),
+                  const Divider(height: 1, thickness: 1, color: AppTheme.borderSubtle),
+                  _buildPositionTile(
+                    icon: Icons.hourglass_bottom_rounded,
+                    iconColor: summary.toReceiveTodayCents > 0
+                        ? AppTheme.warningOrange
+                        : AppTheme.successGreen,
+                    title: 'A Receber',
+                    subtitle: summary.pendingReceiveVehiclesCount == 0
+                        ? 'Nenhuma venda em aberto'
+                        : '${summary.pendingReceiveVehiclesCount} ${summary.pendingReceiveVehiclesCount == 1 ? "venda em aberto" : "vendas em aberto"}',
+                    value: Formatters.formatCurrency(summary.toReceiveTodayCents),
+                    valueColor: summary.toReceiveTodayCents > 0
+                        ? AppTheme.warningOrange
+                        : AppTheme.successGreen,
+                    onTap: summary.pendingReceiveVehiclesCount > 0
+                        ? () => _showPendingReceivablesDrillDown(vehicles)
+                        : null,
+                  ),
+                  const Divider(height: 1, thickness: 1, color: AppTheme.borderSubtle),
                   const SizedBox(height: 12),
+                  const Text(
+                    'Giro & Saúde do Pátio',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       _buildTurnoverMetric(
@@ -1160,14 +976,14 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                             ? Formatters.formatDaysCount(summary.avgDaysToSell!.round())
                             : '—',
                       ),
-                      Container(width: 1, height: 28, color: AppTheme.borderSubtle),
+                      Container(width: 1, height: 26, color: AppTheme.borderSubtle),
                       _buildTurnoverMetric(
                         label: 'Idade no pátio',
                         value: summary.avgStockAgeDays != null
                             ? Formatters.formatDaysCount(summary.avgStockAgeDays!.round())
                             : '—',
                       ),
-                      Container(width: 1, height: 28, color: AppTheme.borderSubtle),
+                      Container(width: 1, height: 26, color: AppTheme.borderSubtle),
                       _buildTurnoverMetric(
                         label: 'Parados (+45d)',
                         value: '${summary.stagnantStockCount}',
@@ -1189,12 +1005,14 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
             );
 
             final categoryExpensesCard = Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.borderSubtle),
-              ),
+              padding: EdgeInsets.all(isDesktopLayout ? 18 : 0),
+              decoration: isDesktopLayout
+                  ? BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppTheme.borderSubtle),
+                    )
+                  : const BoxDecoration(color: Colors.white),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1270,13 +1088,13 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 7),
+                            const SizedBox(height: 6),
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(3),
                               child: LinearProgressIndicator(
                                 value: ratio.clamp(0.0, 1.0),
-                                minHeight: 7,
-                                backgroundColor: const Color(0xFFF1F5F9),
+                                minHeight: 6,
+                                backgroundColor: AppTheme.sectionDivider,
                                 color: AppTheme.primaryDark,
                               ),
                             ),
@@ -1288,152 +1106,219 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
               ),
             );
 
-            final sectionSwitcher = AppSegmentedControl<int>(
-              selectedValue: _selectedSection,
-              maxDesktopWidth: isDesktopLayout ? 420 : null,
-              onChanged: (idx) => setState(() => _selectedSection = idx),
-              items: const [
-                AppSegmentedItem(
-                  value: 0,
-                  label: 'Resumo do Mês',
-                  icon: Icons.calendar_month_outlined,
-                ),
-                AppSegmentedItem(
-                  value: 1,
-                  label: 'Por Modelo',
-                  icon: Icons.leaderboard_outlined,
-                ),
-              ],
-            );
-
             return Scaffold(
-              backgroundColor: AppTheme.bgSurface,
-              body: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(
-                  isDesktopLayout ? 24 : 16,
-                  isDesktopLayout ? 20 : 14,
-                  isDesktopLayout ? 24 : 16,
-                  32,
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: isDesktopLayout ? ResponsiveBreakpoints.maxContentWidth : 640,
+              backgroundColor: isDesktopLayout ? AppTheme.desktopBg : Colors.white,
+              body: Column(
+                children: [
+                  headerBar,
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.only(bottom: isDesktopLayout ? 32 : 24),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: isDesktopLayout
+                                ? ResponsiveBreakpoints.maxContentWidth
+                                : 640,
+                          ),
+                          child: _selectedSection == 1
+                              ? Padding(
+                                  padding: EdgeInsets.fromLTRB(
+                                    isDesktopLayout ? 24 : 16,
+                                    16,
+                                    isDesktopLayout ? 24 : 16,
+                                    0,
+                                  ),
+                                  child: ModelPerformanceView(
+                                    vehicles: vehicles,
+                                    expenses: expenses,
+                                    isDesktopLayout: isDesktopLayout,
+                                    onModelTap: (stats) =>
+                                        _showModelSalesDrillDown(stats, expensesByVehicle),
+                                  ),
+                                )
+                              : isDesktopLayout
+                                  ? Padding(
+                                      padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                                        children: [
+                                          monthSelector,
+                                          const SizedBox(height: 16),
+                                          IntrinsicHeight(
+                                            child: Row(
+                                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                                              children: [
+                                                Expanded(child: profitCard),
+                                                const SizedBox(width: 16),
+                                                Expanded(child: cashFlowCard),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          IntrinsicHeight(
+                                            child: Row(
+                                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                                              children: [
+                                                Expanded(child: positionRows),
+                                                const SizedBox(width: 16),
+                                                Expanded(child: categoryExpensesCard),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                                          child: monthSelector,
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                                          child: profitCard,
+                                        ),
+                                        Container(height: 8, color: AppTheme.sectionDivider),
+                                        Padding(
+                                          padding: const EdgeInsets.all(16),
+                                          child: cashFlowCard,
+                                        ),
+                                        Container(height: 8, color: AppTheme.sectionDivider),
+                                        Padding(
+                                          padding: const EdgeInsets.all(16),
+                                          child: positionRows,
+                                        ),
+                                        Container(height: 8, color: AppTheme.sectionDivider),
+                                        Padding(
+                                          padding: const EdgeInsets.all(16),
+                                          child: categoryExpensesCard,
+                                        ),
+                                      ],
+                                    ),
+                        ),
+                      ),
                     ),
-                    child: _selectedSection == 1
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              headerRow,
-                              const SizedBox(height: 14),
-                              sectionSwitcher,
-                              const SizedBox(height: 16),
-                              ModelPerformanceView(
-                                vehicles: vehicles,
-                                expenses: expenses,
-                                isDesktopLayout: isDesktopLayout,
-                                onModelTap: (stats) =>
-                                    _showModelSalesDrillDown(stats, expensesByVehicle),
-                              ),
-                            ],
-                          )
-                        : isDesktopLayout
-                            ? Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  headerRow,
-                                  const SizedBox(height: 14),
-                                  sectionSwitcher,
-                                  const SizedBox(height: 16),
-                                  monthSelector,
-                                  const SizedBox(height: 16),
-                                  IntrinsicHeight(
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
-                                        Expanded(child: profitCard),
-                                        const SizedBox(width: 16),
-                                        Expanded(child: cashFlowCard),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                                    child: Text(
-                                      'Posição Geral (Hoje)',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
-                                        color: AppTheme.textMain,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  IntrinsicHeight(
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
-                                        Expanded(child: stockPositionCard),
-                                        const SizedBox(width: 14),
-                                        Expanded(child: toReceiveCard),
-                                        const SizedBox(width: 14),
-                                        Expanded(flex: 2, child: turnoverCard),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  categoryExpensesCard,
-                                ],
-                              )
-                            : Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  headerRow,
-                                  const SizedBox(height: 14),
-                                  sectionSwitcher,
-                                  const SizedBox(height: 14),
-                                  monthSelector,
-                                  const SizedBox(height: 14),
-                                  profitCard,
-                                  const SizedBox(height: 14),
-                                  cashFlowCard,
-                                  const SizedBox(height: 14),
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                                    child: Text(
-                                      'Posição Geral (Hoje)',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
-                                        color: AppTheme.textMain,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  IntrinsicHeight(
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
-                                        Expanded(child: stockPositionCard),
-                                        const SizedBox(width: 12),
-                                        Expanded(child: toReceiveCard),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  turnoverCard,
-                                  const SizedBox(height: 14),
-                                  categoryExpensesCard,
-                                ],
-                              ),
                   ),
-                ),
+                ],
               ),
             );
           },
         );
       },
+    );
+  }
+
+  Widget _buildCashRow({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String value,
+    required Color valueColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 11),
+      child: Row(
+        children: [
+          Icon(icon, color: iconColor, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textMain,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: valueColor,
+                  fontFeatures: AppTheme.tabularNumbers,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPositionTile({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    Color subtitleColor = AppTheme.textMuted,
+    required String value,
+    required Color valueColor,
+    VoidCallback? onTap,
+  }) {
+    return Material(
+      color: Colors.white,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: iconColor),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textMain,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: subtitleColor,
+                        fontWeight: subtitleColor == AppTheme.warningOrange
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: valueColor,
+                  fontFeatures: AppTheme.tabularNumbers,
+                ),
+              ),
+              if (onTap != null) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right, size: 18, color: AppTheme.textLight),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
