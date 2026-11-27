@@ -12,6 +12,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_segmented_control.dart';
 import '../../widgets/car_plate_widget.dart';
 import '../../widgets/responsive_layout.dart';
+import '../../widgets/screen_header_row.dart';
 import 'vehicle_detail_screen.dart';
 import 'vehicle_form_screen.dart';
 
@@ -839,57 +840,17 @@ class _StockScreenState extends State<StockScreen> {
               scrolledUnderElevation: 0,
               backgroundColor: Colors.white,
               surfaceTintColor: Colors.transparent,
-              toolbarHeight: 104,
+              toolbarHeight: 108,
               titleSpacing: 0,
               title: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'Estoque',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: AppTheme.textMain,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                        ),
-                        if (widget.onOpenAccount != null)
-                          Tooltip(
-                            message: 'Minha Conta',
-                            child: Semantics(
-                              button: true,
-                              label: 'Minha Conta',
-                              child: InkWell(
-                                onTap: widget.onOpenAccount,
-                                borderRadius: BorderRadius.circular(22),
-                                child: SizedBox(
-                                  width: 44,
-                                  height: 44,
-                                  child: Center(
-                                    child: CircleAvatar(
-                                      radius: 17,
-                                      backgroundColor: AppTheme.sectionDivider,
-                                      child: Text(
-                                        widget.userInitial ?? 'U',
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w800,
-                                          color: AppTheme.textMain,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
+                    ScreenHeaderRow(
+                      title: 'Estoque',
+                      userInitial: widget.userInitial,
+                      onOpenAccount: widget.onOpenAccount,
                     ),
                     const SizedBox(height: 6),
                     Row(
@@ -1012,48 +973,51 @@ class _StockScreenState extends State<StockScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Row(
-                        children: [
-                          const Text(
-                            'Estoque',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: AppTheme.textMain,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          const SizedBox(width: 24),
-                          Expanded(child: _buildSearchField()),
-                          const SizedBox(width: 10),
-                          _buildFilterButton(
-                            compact: false,
-                            docIssueCount: docIssueCount,
-                            pendingPaymentCount: pendingPaymentCount,
-                            stagnantCount: stagnantCount,
-                            allVehicles: allVehicles,
-                          ),
-                          const SizedBox(width: 10),
-                          ElevatedButton.icon(
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text(
-                              'Cadastrar veículo',
-                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primaryDark,
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size(168, 42),
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                      SizedBox(
+                        height: 44,
+                        child: Row(
+                          children: [
+                            const Text(
+                              'Estoque',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.textMain,
+                                letterSpacing: -0.5,
                               ),
                             ),
-                            onPressed: _openNewVehicleForm,
-                          ),
-                        ],
+                            const SizedBox(width: 24),
+                            Expanded(child: _buildSearchField()),
+                            const SizedBox(width: 10),
+                            _buildFilterButton(
+                              compact: false,
+                              docIssueCount: docIssueCount,
+                              pendingPaymentCount: pendingPaymentCount,
+                              stagnantCount: stagnantCount,
+                              allVehicles: allVehicles,
+                            ),
+                            const SizedBox(width: 10),
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text(
+                                'Cadastrar veículo',
+                                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryDark,
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(168, 42),
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: _openNewVehicleForm,
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       _buildTabsBar(
                         inStockCount,
                         soldCount,

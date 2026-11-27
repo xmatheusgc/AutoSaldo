@@ -13,6 +13,7 @@ import '../../../domain/services/financial_calculator.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_segmented_control.dart';
 import '../../widgets/responsive_layout.dart';
+import '../../widgets/screen_header_row.dart';
 import '../stock/vehicle_detail_screen.dart';
 import 'csv_download_helper.dart';
 import 'model_performance_view.dart';
@@ -564,72 +565,14 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                         Padding(
                           padding: EdgeInsets.fromLTRB(
                             isDesktopLayout ? 24 : 16,
-                            isDesktopLayout ? 14 : 10,
-                            isDesktopLayout ? 24 : 12,
-                            4,
+                            isDesktopLayout ? 14 : 8,
+                            isDesktopLayout ? 24 : 16,
+                            isDesktopLayout ? 10 : 6,
                           ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Resumo Financeiro',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: isDesktopLayout ? 22 : 20,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppTheme.textMain,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                              ),
-                              OutlinedButton.icon(
-                                icon: const Icon(Icons.file_download_outlined, size: 17),
-                                label: const Text(
-                                  'Exportar CSV',
-                                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppTheme.textMain,
-                                  backgroundColor: Colors.white,
-                                  side: const BorderSide(color: AppTheme.borderInteractive),
-                                  minimumSize: const Size(110, 38),
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                                onPressed: () => _exportCsv(vehicles, expenses),
-                              ),
-                              if (!isDesktopLayout && widget.onOpenAccount != null) ...[
-                                const SizedBox(width: 4),
-                                Tooltip(
-                                  message: 'Minha Conta',
-                                  child: InkWell(
-                                    onTap: widget.onOpenAccount,
-                                    borderRadius: BorderRadius.circular(22),
-                                    child: SizedBox(
-                                      width: 40,
-                                      height: 40,
-                                      child: Center(
-                                        child: CircleAvatar(
-                                          radius: 16,
-                                          backgroundColor: AppTheme.sectionDivider,
-                                          child: Text(
-                                            widget.userInitial ?? 'U',
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w800,
-                                              color: AppTheme.textMain,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
+                          child: ScreenHeaderRow(
+                            title: 'Resumo Financeiro',
+                            userInitial: widget.userInitial,
+                            onOpenAccount: !isDesktopLayout ? widget.onOpenAccount : null,
                           ),
                         ),
                         AppUnderlineTabBar<int>(
@@ -1121,82 +1064,131 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                                 ? ResponsiveBreakpoints.maxContentWidth
                                 : 640,
                           ),
-                          child: _selectedSection == 1
-                              ? Padding(
-                                  padding: EdgeInsets.fromLTRB(
-                                    isDesktopLayout ? 24 : 16,
-                                    16,
-                                    isDesktopLayout ? 24 : 16,
-                                    0,
-                                  ),
-                                  child: ModelPerformanceView(
-                                    vehicles: vehicles,
-                                    expenses: expenses,
-                                    isDesktopLayout: isDesktopLayout,
-                                    onModelTap: (stats) =>
-                                        _showModelSalesDrillDown(stats, expensesByVehicle),
-                                  ),
-                                )
-                              : isDesktopLayout
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _selectedSection == 1
                                   ? Padding(
-                                      padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                                        children: [
-                                          monthSelector,
-                                          const SizedBox(height: 16),
-                                          IntrinsicHeight(
-                                            child: Row(
-                                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                                              children: [
-                                                Expanded(child: profitCard),
-                                                const SizedBox(width: 16),
-                                                Expanded(child: cashFlowCard),
-                                              ],
-                                            ),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          IntrinsicHeight(
-                                            child: Row(
-                                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                                              children: [
-                                                Expanded(child: positionRows),
-                                                const SizedBox(width: 16),
-                                                Expanded(child: categoryExpensesCard),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
+                                      padding: EdgeInsets.fromLTRB(
+                                        isDesktopLayout ? 24 : 16,
+                                        16,
+                                        isDesktopLayout ? 24 : 16,
+                                        0,
+                                      ),
+                                      child: ModelPerformanceView(
+                                        vehicles: vehicles,
+                                        expenses: expenses,
+                                        isDesktopLayout: isDesktopLayout,
+                                        onModelTap: (stats) =>
+                                            _showModelSalesDrillDown(stats, expensesByVehicle),
                                       ),
                                     )
-                                  : Column(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-                                          child: monthSelector,
+                                  : isDesktopLayout
+                                      ? Padding(
+                                          padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                                            children: [
+                                              monthSelector,
+                                              const SizedBox(height: 16),
+                                              IntrinsicHeight(
+                                                child: Row(
+                                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                  children: [
+                                                    Expanded(child: profitCard),
+                                                    const SizedBox(width: 16),
+                                                    Expanded(child: cashFlowCard),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(height: 16),
+                                              IntrinsicHeight(
+                                                child: Row(
+                                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                  children: [
+                                                    Expanded(child: positionRows),
+                                                    const SizedBox(width: 16),
+                                                    Expanded(child: categoryExpensesCard),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        )
+                                      : Column(
+                                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                                          children: [
+                                            Padding(
+                                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                                              child: monthSelector,
+                                            ),
+                                            Padding(
+                                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                                              child: profitCard,
+                                            ),
+                                            Container(height: 8, color: AppTheme.sectionDivider),
+                                            Padding(
+                                              padding: const EdgeInsets.all(16),
+                                              child: cashFlowCard,
+                                            ),
+                                            Container(height: 8, color: AppTheme.sectionDivider),
+                                            Padding(
+                                              padding: const EdgeInsets.all(16),
+                                              child: positionRows,
+                                            ),
+                                            Container(height: 8, color: AppTheme.sectionDivider),
+                                            Padding(
+                                              padding: const EdgeInsets.all(16),
+                                              child: categoryExpensesCard,
+                                            ),
+                                          ],
                                         ),
-                                        Padding(
-                                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                                          child: profitCard,
+                              if (!isDesktopLayout && _selectedSection == 0)
+                                Container(height: 8, color: AppTheme.sectionDivider),
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(
+                                  isDesktopLayout ? 24 : 16,
+                                  16,
+                                  isDesktopLayout ? 24 : 16,
+                                  0,
+                                ),
+                                child: Align(
+                                  alignment: isDesktopLayout
+                                      ? Alignment.centerRight
+                                      : Alignment.center,
+                                  child: SizedBox(
+                                    width: isDesktopLayout ? null : double.infinity,
+                                    child: OutlinedButton.icon(
+                                      icon: const Icon(Icons.file_download_outlined, size: 18),
+                                      label: const Text(
+                                        'Exportar CSV',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13.5,
                                         ),
-                                        Container(height: 8, color: AppTheme.sectionDivider),
-                                        Padding(
-                                          padding: const EdgeInsets.all(16),
-                                          child: cashFlowCard,
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppTheme.textMain,
+                                        backgroundColor: Colors.white,
+                                        side: const BorderSide(
+                                          color: AppTheme.borderInteractive,
                                         ),
-                                        Container(height: 8, color: AppTheme.sectionDivider),
-                                        Padding(
-                                          padding: const EdgeInsets.all(16),
-                                          child: positionRows,
+                                        minimumSize: const Size(140, 44),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 10,
                                         ),
-                                        Container(height: 8, color: AppTheme.sectionDivider),
-                                        Padding(
-                                          padding: const EdgeInsets.all(16),
-                                          child: categoryExpensesCard,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
                                         ),
-                                      ],
+                                      ),
+                                      onPressed: () => _exportCsv(vehicles, expenses),
                                     ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
