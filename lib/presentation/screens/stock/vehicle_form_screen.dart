@@ -9,6 +9,8 @@ import '../../../data/repositories/vehicle_repository.dart';
 import '../../../data/services/fipe_service.dart';
 import '../../../domain/models/vehicle.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_segmented_control.dart';
+import '../../widgets/buyer_fields_section.dart';
 import '../../widgets/currency_text_field.dart';
 import '../../widgets/date_picker_field.dart';
 import '../../widgets/responsive_layout.dart';
@@ -53,10 +55,20 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
   late TextEditingController _crvNumberController;
   late TextEditingController _docNotesController;
 
+  // Consignado
+  late TextEditingController _commissionPercentController;
+  late TextEditingController _consignorNameController;
+  late TextEditingController _consignorPhoneController;
+  late TextEditingController _consignorDocumentController;
+
   late String _purchaseDate;
   int _purchasePriceCents = 0;
   int? _announcedPriceCents;
   String _docStatus = AppConstants.docStatusPendingCheck;
+  String _ownershipType = AppConstants.ownershipOwn;
+  String _consignmentType = AppConstants.consignmentTypeFixedPayout;
+  int _consignmentAgreementValueCents = 0;
+  bool _consignorExpanded = false;
 
   bool _isSaving = false;
   bool _isDirty = false;
@@ -106,10 +118,28 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
     _crvNumberController = TextEditingController(text: v?.crvNumber ?? '');
     _docNotesController = TextEditingController(text: v?.docNotes ?? '');
 
+    final initialPct = v?.consignmentCommissionBps != null
+        ? (v!.consignmentCommissionBps! / 100.0)
+            .toStringAsFixed(v.consignmentCommissionBps! % 100 == 0 ? 0 : 2)
+            .replaceAll('.', ',')
+        : '';
+    _commissionPercentController = TextEditingController(text: initialPct);
+    _consignorNameController = TextEditingController(text: v?.consignorName ?? '');
+    _consignorPhoneController = TextEditingController(
+      text: v?.consignorPhone != null ? Formatters.formatPhone(v!.consignorPhone) : '',
+    );
+    _consignorDocumentController = TextEditingController(
+      text: v?.consignorDocument != null ? Formatters.formatCpfCnpj(v!.consignorDocument) : '',
+    );
+
     _purchaseDate = v?.purchaseDate ?? Formatters.todayIsoDate();
     _purchasePriceCents = v?.purchasePriceCents ?? 0;
     _announcedPriceCents = v?.announcedPriceCents;
     _docStatus = v?.docStatus ?? AppConstants.docStatusPendingCheck;
+    _ownershipType = v?.ownershipType ?? AppConstants.ownershipOwn;
+    _consignmentType = v?.consignmentType ?? AppConstants.consignmentTypeFixedPayout;
+    _consignmentAgreementValueCents = v?.consignmentAgreementValueCents ?? 0;
+    _consignorExpanded = v?.hasConsignorInfo ?? false;
 
     if (v != null) {
       _docsExpanded = (v.renavam != null && v.renavam!.isNotEmpty) ||
@@ -155,6 +185,10 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
     _modelYearController.dispose();
     _crvNumberController.dispose();
     _docNotesController.dispose();
+    _commissionPercentController.dispose();
+    _consignorNameController.dispose();
+    _consignorPhoneController.dispose();
+    _consignorDocumentController.dispose();
     super.dispose();
   }
 
@@ -633,6 +667,16 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
     return false;
   }
 
+  bool get _isConsigned => _ownershipType == AppConstants.ownershipConsigned;
+
+  int? _parseCommissionBps() {
+    final raw = _commissionPercentController.text.trim().replaceAll(',', '.');
+    if (raw.isEmpty) return null;
+    final parsed = double.tryParse(raw);
+    if (parsed == null) return null;
+    return (parsed * 100).round();
+  }
+
   Future<void> _handleSave() async {
     if (!_docsExpanded && _hasInvalidCollapsedDocs()) {
       setState(() => _docsExpanded = true);
@@ -646,7 +690,25 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
 
     if (!_formKey.currentState!.validate()) return;
 
-    if (_purchasePriceCents <= 0) {
+    int? commissionBps;
+    if (_isConsigned) {
+      if (_consignmentType == AppConstants.consignmentTypeCommissionPercent) {
+        commissionBps = _parseCommissionBps();
+        if (commissionBps == null || commissionBps <= 0 || commissionBps > 10000) {
+          setState(() {
+            _saveError = 'Informe um percentual de comissão válido (entre 0,01% e 100%).';
+          });
+          return;
+        }
+      } else if (_consignmentAgreementValueCents <= 0) {
+        setState(() {
+          _saveError = _consignmentType == AppConstants.consignmentTypeFixedPayout
+              ? 'O valor de repasse ao proprietário deve ser maior que zero.'
+              : 'O valor da comissão fixa deve ser maior que zero.';
+        });
+        return;
+      }
+    } else if (_purchasePriceCents <= 0) {
       setState(() {
         _saveError = 'O valor pago na compra deve ser maior que zero.';
       });
@@ -668,6 +730,10 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
       final manufactureYear = int.tryParse(_manufactureYearController.text.trim());
       final modelYear = int.tryParse(_modelYearController.text.trim());
 
+      final consignorName = _consignorNameController.text.trim();
+      final consignorPhone = Formatters.digitsOnly(_consignorPhoneController.text);
+      final consignorDoc = Formatters.digitsOnly(_consignorDocumentController.text);
+
       final vehicle = Vehicle(
         id: widget.vehicleToEdit?.id ?? '',
         brand: _brandController.text.trim(),
@@ -675,7 +741,7 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
         version: _versionController.text.trim().isNotEmpty ? _versionController.text.trim() : null,
         plate: normalizedPlate,
         purchaseDate: _purchaseDate,
-        purchasePriceCents: _purchasePriceCents,
+        purchasePriceCents: _isConsigned ? 0 : _purchasePriceCents,
         announcedPriceCents: _announcedPriceCents != null && _announcedPriceCents! > 0
             ? _announcedPriceCents
             : null,
@@ -690,6 +756,21 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
                 _docNotesController.text.trim().isNotEmpty
             ? _docNotesController.text.trim()
             : null,
+        ownershipType: _ownershipType,
+        consignmentType: _consignmentType,
+        consignmentAgreementValueCents: _isConsigned &&
+                _consignmentType != AppConstants.consignmentTypeCommissionPercent
+            ? _consignmentAgreementValueCents
+            : 0,
+        consignmentCommissionBps: _isConsigned &&
+                _consignmentType == AppConstants.consignmentTypeCommissionPercent
+            ? commissionBps
+            : null,
+        consignorName: _isConsigned && consignorName.isNotEmpty ? consignorName : null,
+        consignorPhone: _isConsigned && consignorPhone.isNotEmpty ? consignorPhone : null,
+        consignorDocument: _isConsigned && consignorDoc.isNotEmpty ? consignorDoc : null,
+        consignmentReturnedDate: widget.vehicleToEdit?.consignmentReturnedDate,
+        consignmentReturnedNotes: widget.vehicleToEdit?.consignmentReturnedNotes,
         activeSale: widget.vehicleToEdit?.activeSale,
         cancelledSales: widget.vehicleToEdit?.cancelledSales ?? const [],
         createdAt: widget.vehicleToEdit?.createdAt ?? now,
@@ -864,22 +945,62 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
         ),
     );
 
+    final isSoldVehicle = isEditing && (widget.vehicleToEdit?.isSold ?? false);
+
     final purchaseCard = _wrapSection(
       isTwoColumn: isTwoColumn,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Dados Financeiros da Compra',
-            style: TextStyle(
+          Text(
+            _isConsigned ? 'Dados do Consignado' : 'Dados Financeiros da Compra',
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
               color: AppTheme.textMain,
             ),
           ),
+          const SizedBox(height: 12),
+          IgnorePointer(
+            ignoring: isSoldVehicle,
+            child: Opacity(
+              opacity: isSoldVehicle ? 0.6 : 1.0,
+              child: AppSegmentedControl<String>(
+                maxDesktopWidth: null,
+                selectedValue: _ownershipType,
+                items: const [
+                  AppSegmentedItem(
+                    value: AppConstants.ownershipOwn,
+                    label: 'Próprio',
+                    icon: Icons.directions_car_outlined,
+                  ),
+                  AppSegmentedItem(
+                    value: AppConstants.ownershipConsigned,
+                    label: 'Consignado',
+                    icon: Icons.handshake_outlined,
+                  ),
+                ],
+                onChanged: (val) {
+                  if (val == _ownershipType) return;
+                  setState(() {
+                    _ownershipType = val;
+                    _saveError = null;
+                    _isDirty = true;
+                  });
+                },
+              ),
+            ),
+          ),
+          if (isSoldVehicle) ...[
+            const SizedBox(height: 6),
+            const Text(
+              'A origem do veículo não pode ser alterada após a venda.',
+              style: TextStyle(fontSize: 11.5, color: AppTheme.textMuted),
+            ),
+          ],
           const SizedBox(height: 16),
           DatePickerField(
-            label: 'Data da Compra *',
+            label: _isConsigned ? 'Data de entrada no pátio *' : 'Data da Compra *',
             isoDate: _purchaseDate,
             onDateSelected: (newDate) {
               setState(() {
@@ -887,21 +1008,126 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
                 _isDirty = true;
               });
             },
-            helperText: 'A compra não aceita datas futuras.',
+            helperText: _isConsigned
+                ? 'Data em que o veículo entrou em consignação.'
+                : 'A compra não aceita datas futuras.',
           ),
           const SizedBox(height: 14),
-          CurrencyTextField(
-            label: 'Valor pago na compra *',
-            initialValueCents: _purchasePriceCents,
-            required: true,
-            onChanged: (cents) {
-              setState(() {
-                _purchasePriceCents = cents;
-              });
-              _markDirty();
-            },
-            helperText: 'A compra compõe o custo inicial do veículo.',
-          ),
+          if (!_isConsigned) ...[
+            CurrencyTextField(
+              label: 'Valor pago na compra *',
+              initialValueCents: _purchasePriceCents,
+              required: true,
+              onChanged: (cents) {
+                setState(() {
+                  _purchasePriceCents = cents;
+                });
+                _markDirty();
+              },
+              helperText: 'A compra compõe o custo inicial do veículo.',
+            ),
+          ] else ...[
+            const Text(
+              'Modelo de acerto com o proprietário',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textMuted,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: AppConstants.consignmentTypeLabels.entries.map((entry) {
+                final selected = _consignmentType == entry.key;
+                return ChoiceChip(
+                  label: Text(
+                    entry.value,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                      color: selected ? Colors.white : AppTheme.textMain,
+                    ),
+                  ),
+                  selected: selected,
+                  selectedColor: AppTheme.primaryDark,
+                  backgroundColor: Colors.white,
+                  checkmarkColor: Colors.white,
+                  side: BorderSide(
+                    color: selected
+                        ? AppTheme.primaryDark
+                        : AppTheme.borderInteractive,
+                  ),
+                  onSelected: (_) {
+                    if (_consignmentType == entry.key) return;
+                    setState(() {
+                      _consignmentType = entry.key;
+                      _consignmentAgreementValueCents = 0;
+                      _commissionPercentController.clear();
+                      _saveError = null;
+                      _isDirty = true;
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 14),
+            if (_consignmentType == AppConstants.consignmentTypeFixedPayout)
+              CurrencyTextField(
+                key: const ValueKey('consignment_fixed_payout'),
+                label: 'Valor de repasse ao proprietário *',
+                initialValueCents: _consignmentAgreementValueCents,
+                required: true,
+                onChanged: (cents) {
+                  setState(() {
+                    _consignmentAgreementValueCents = cents;
+                  });
+                  _markDirty();
+                },
+                helperText: 'Valor líquido combinado; o excedente na venda fica com a loja.',
+              )
+            else if (_consignmentType == AppConstants.consignmentTypeCommissionPercent)
+              TextFormField(
+                controller: _commissionPercentController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                ],
+                decoration: const InputDecoration(
+                  labelText: 'Comissão da loja (%) *',
+                  hintText: 'Ex: 5 ou 5,5',
+                  suffixText: '%',
+                  helperText: 'Percentual da loja sobre o valor final negociado na venda.',
+                ),
+                onChanged: (_) => setState(() => _isDirty = true),
+                validator: (val) {
+                  if (!_isConsigned ||
+                      _consignmentType != AppConstants.consignmentTypeCommissionPercent) {
+                    return null;
+                  }
+                  final bps = _parseCommissionBps();
+                  if (bps == null || bps <= 0 || bps > 10000) {
+                    return 'Informe um percentual entre 0,01% e 100%.';
+                  }
+                  return null;
+                },
+              )
+            else
+              CurrencyTextField(
+                key: const ValueKey('consignment_commission_fixed'),
+                label: 'Valor da comissão da loja *',
+                initialValueCents: _consignmentAgreementValueCents,
+                required: true,
+                onChanged: (cents) {
+                  setState(() {
+                    _consignmentAgreementValueCents = cents;
+                  });
+                  _markDirty();
+                },
+                helperText: 'Valor fixo que a loja ganha; o restante é repassado ao proprietário.',
+              ),
+          ],
           const SizedBox(height: 14),
           CurrencyTextField(
             label: 'Preço anunciado para venda (opcional)',
@@ -912,8 +1138,69 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
               });
               _markDirty();
             },
-            helperText: 'Usado para calcular a estimativa de lucro em estoque.',
+            helperText: _isConsigned
+                ? 'Usado para estimar repasse e margem da loja.'
+                : 'Usado para calcular a estimativa de lucro em estoque.',
           ),
+          if (_isConsigned && _announcedPriceCents != null && _announcedPriceCents! > 0) ...[
+            const SizedBox(height: 12),
+            _buildConsignmentPreviewBox(),
+          ],
+          if (_isConsigned) ...[
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: AppTheme.borderSubtle),
+            InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () {
+                setState(() {
+                  _consignorExpanded = !_consignorExpanded;
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Row(
+                  children: [
+                    const Icon(Icons.person_outline, size: 18, color: AppTheme.accentBlue),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Dados do proprietário (opcional)',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textMain,
+                            ),
+                          ),
+                          if (!_consignorExpanded)
+                            const Text(
+                              'Nome, telefone/WhatsApp e CPF/CNPJ',
+                              style: TextStyle(fontSize: 11.5, color: AppTheme.textMuted),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      _consignorExpanded ? Icons.expand_less : Icons.expand_more,
+                      color: AppTheme.textMuted,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_consignorExpanded) ...[
+              const SizedBox(height: 6),
+              BuyerFieldsSection(
+                nameController: _consignorNameController,
+                phoneController: _consignorPhoneController,
+                documentController: _consignorDocumentController,
+                nameLabel: 'Nome do proprietário',
+                nameHint: 'Ex: Maria Oliveira',
+              ),
+            ],
+          ],
           if (_brandController.text.trim().isNotEmpty &&
               _modelController.text.trim().isNotEmpty) ...[
             const SizedBox(height: 14),
@@ -1093,11 +1380,97 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
     );
   }
 
+  Widget _buildConsignmentPreviewBox() {
+    final announced = _announcedPriceCents ?? 0;
+    if (announced <= 0) return const SizedBox.shrink();
+
+    int? estimatedPayout;
+    if (_consignmentType == AppConstants.consignmentTypeFixedPayout) {
+      if (_consignmentAgreementValueCents <= 0) return const SizedBox.shrink();
+      estimatedPayout = _consignmentAgreementValueCents;
+    } else if (_consignmentType == AppConstants.consignmentTypeCommissionPercent) {
+      final bps = _parseCommissionBps();
+      if (bps == null || bps <= 0) return const SizedBox.shrink();
+      final commission = ((announced * bps) / 10000.0).round();
+      estimatedPayout = (announced - commission).clamp(0, announced);
+    } else {
+      if (_consignmentAgreementValueCents <= 0) return const SizedBox.shrink();
+      estimatedPayout =
+          (announced - _consignmentAgreementValueCents).clamp(0, announced);
+    }
+
+    final estimatedMargin = announced - estimatedPayout;
+    final isNegative = estimatedMargin < 0;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: isNegative ? AppTheme.dangerLight : AppTheme.successLight,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isNegative ? AppTheme.dangerBorder : AppTheme.successBorder,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Repasse estimado',
+                  style: TextStyle(fontSize: 11, color: AppTheme.textMuted, fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  Formatters.formatCurrency(estimatedPayout),
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textMain,
+                    fontFeatures: AppTheme.tabularNumbers,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                isNegative ? 'Margem negativa' : 'Comissão / margem est.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isNegative ? AppTheme.dangerRed : AppTheme.successGreen,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                '${isNegative ? "-" : "+"}${Formatters.formatCurrency(estimatedMargin.abs())}',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: isNegative ? AppTheme.dangerRed : AppTheme.successGreen,
+                  fontFeatures: AppTheme.tabularNumbers,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFipeReferenceBox() {
     final price = _fipePriceResult;
+    final refComparisonCents = _isConsigned
+        ? (_consignmentType == AppConstants.consignmentTypeFixedPayout
+            ? _consignmentAgreementValueCents
+            : 0)
+        : _purchasePriceCents;
     double? diffPercent;
-    if (price != null && price.priceCents > 0 && _purchasePriceCents > 0) {
-      diffPercent = ((_purchasePriceCents - price.priceCents) / price.priceCents) * 100.0;
+    if (price != null && price.priceCents > 0 && refComparisonCents > 0) {
+      diffPercent = ((refComparisonCents - price.priceCents) / price.priceCents) * 100.0;
     }
 
     return Container(
@@ -1165,8 +1538,8 @@ class _VehicleFormScreenState extends State<VehicleFormScreen> {
               const SizedBox(height: 4),
               Text(
                 diffPercent <= 0
-                    ? 'Compra ${Formatters.formatPercent(diffPercent.abs(), showSign: false)} abaixo da FIPE'
-                    : 'Compra ${Formatters.formatPercent(diffPercent, showSign: false)} acima da FIPE',
+                    ? '${_isConsigned ? "Repasse" : "Compra"} ${Formatters.formatPercent(diffPercent.abs(), showSign: false)} abaixo da FIPE'
+                    : '${_isConsigned ? "Repasse" : "Compra"} ${Formatters.formatPercent(diffPercent, showSign: false)} acima da FIPE',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,

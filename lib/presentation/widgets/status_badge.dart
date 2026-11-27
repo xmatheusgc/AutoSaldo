@@ -68,6 +68,54 @@ class StatusBadge extends StatelessWidget {
     }
   }
 
+  factory StatusBadge.consigned() {
+    return const StatusBadge(
+      label: 'Consignado',
+      backgroundColor: Color(0xFFEEF2FF),
+      textColor: Color(0xFF3730A3),
+      borderColor: Color(0xFFC7D2FE),
+      icon: Icons.handshake_outlined,
+    );
+  }
+
+  factory StatusBadge.returnedToOwner() {
+    return const StatusBadge(
+      label: 'Devolvido',
+      backgroundColor: AppTheme.sectionDivider,
+      textColor: AppTheme.textMuted,
+      borderColor: AppTheme.borderSubtle,
+      icon: Icons.assignment_return_outlined,
+    );
+  }
+
+  factory StatusBadge.payoutStatus(int netPayoutCents, int paidCents) {
+    if (netPayoutCents <= 0 || paidCents >= netPayoutCents) {
+      return const StatusBadge(
+        label: 'Repassado',
+        backgroundColor: AppTheme.successLight,
+        textColor: AppTheme.successGreen,
+        borderColor: AppTheme.successBorder,
+        icon: Icons.check,
+      );
+    }
+    if (paidCents > 0) {
+      return const StatusBadge(
+        label: 'Parcial',
+        backgroundColor: AppTheme.warningLight,
+        textColor: AppTheme.warningOrange,
+        borderColor: AppTheme.warningBorder,
+        icon: Icons.pie_chart,
+      );
+    }
+    return const StatusBadge(
+      label: 'A repassar',
+      backgroundColor: AppTheme.warningLight,
+      textColor: AppTheme.warningOrange,
+      borderColor: AppTheme.warningBorder,
+      icon: Icons.hourglass_top,
+    );
+  }
+
   factory StatusBadge.paymentStatus(String status) {
     switch (status) {
       case AppConstants.paymentStatusSettled:

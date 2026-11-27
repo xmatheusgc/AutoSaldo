@@ -8,6 +8,7 @@ class Expense {
   final String category;
   final String? description;
   final String status; // 'valid' ou 'reverted'
+  final bool deductFromConsignmentPayout;
   final DateTime createdAt;
   final DateTime updatedAt;
   final String createdByUid;
@@ -24,6 +25,7 @@ class Expense {
     required this.category,
     this.description,
     this.status = AppConstants.statusValid,
+    this.deductFromConsignmentPayout = false,
     required this.createdAt,
     required this.updatedAt,
     required this.createdByUid,
@@ -47,6 +49,8 @@ class Expense {
       'category': category,
       'description': description,
       'status': status,
+      if (deductFromConsignmentPayout)
+        'deductFromConsignmentPayout': deductFromConsignmentPayout,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'createdByUid': createdByUid,
@@ -66,6 +70,8 @@ class Expense {
       category: map['category'] as String? ?? AppConstants.expenseCategoryOther,
       description: map['description'] as String?,
       status: map['status'] as String? ?? AppConstants.statusValid,
+      deductFromConsignmentPayout:
+          map['deductFromConsignmentPayout'] as bool? ?? false,
       createdAt: map['createdAt'] != null
           ? DateTime.tryParse(map['createdAt'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -90,6 +96,7 @@ class Expense {
     String? category,
     String? description,
     String? status,
+    bool? deductFromConsignmentPayout,
     DateTime? createdAt,
     DateTime? updatedAt,
     String? createdByUid,
@@ -106,6 +113,8 @@ class Expense {
       category: category ?? this.category,
       description: description ?? this.description,
       status: status ?? this.status,
+      deductFromConsignmentPayout:
+          deductFromConsignmentPayout ?? this.deductFromConsignmentPayout,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       createdByUid: createdByUid ?? this.createdByUid,

@@ -9,6 +9,7 @@ class ActiveSale {
   final String? buyerPhone;
   final String? buyerDocument;
   final List<Payment> payments;
+  final List<Payment> ownerPayouts;
   final DateTime createdAt;
   final DateTime updatedAt;
   final String createdByUid;
@@ -24,6 +25,7 @@ class ActiveSale {
     this.buyerPhone,
     this.buyerDocument,
     this.payments = const [],
+    this.ownerPayouts = const [],
     required this.createdAt,
     required this.updatedAt,
     required this.createdByUid,
@@ -41,6 +43,17 @@ class ActiveSale {
   int get totalReceivedCents {
     int total = 0;
     for (final p in payments) {
+      if (p.isValid) {
+        total += p.amountCents;
+      }
+    }
+    return total;
+  }
+
+  /// Total de repasses válidos já pagos ao proprietário (consignado)
+  int get totalOwnerPayoutPaidCents {
+    int total = 0;
+    for (final p in ownerPayouts) {
       if (p.isValid) {
         total += p.amountCents;
       }
@@ -66,6 +79,7 @@ class ActiveSale {
   }
 
   bool get hasValidPayments => payments.any((p) => p.isValid);
+  bool get hasValidOwnerPayouts => ownerPayouts.any((p) => p.isValid);
 
   Map<String, dynamic> toMap() {
     return {
@@ -76,6 +90,8 @@ class ActiveSale {
       'buyerPhone': ?buyerPhone,
       'buyerDocument': ?buyerDocument,
       'payments': payments.map((p) => p.toMap()).toList(),
+      if (ownerPayouts.isNotEmpty)
+        'ownerPayouts': ownerPayouts.map((p) => p.toMap()).toList(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'createdByUid': createdByUid,
@@ -97,6 +113,11 @@ class ActiveSale {
         .map((item) => Payment.fromMap(Map<String, dynamic>.from(item as Map)))
         .toList();
 
+    final payoutsRaw = map['ownerPayouts'] as List<dynamic>? ?? [];
+    final payoutsList = payoutsRaw
+        .map((item) => Payment.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
+
     return ActiveSale(
       id: map['id'] as String? ?? '',
       saleDate: map['saleDate'] as String? ?? '',
@@ -105,6 +126,7 @@ class ActiveSale {
       buyerPhone: _cleanOptional(map['buyerPhone']),
       buyerDocument: _cleanOptional(map['buyerDocument']),
       payments: paymentsList,
+      ownerPayouts: payoutsList,
       createdAt: map['createdAt'] != null
           ? DateTime.tryParse(map['createdAt'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -126,6 +148,7 @@ class ActiveSale {
     String? buyerPhone,
     String? buyerDocument,
     List<Payment>? payments,
+    List<Payment>? ownerPayouts,
     DateTime? createdAt,
     DateTime? updatedAt,
     String? createdByUid,
@@ -141,6 +164,7 @@ class ActiveSale {
       buyerPhone: buyerPhone ?? this.buyerPhone,
       buyerDocument: buyerDocument ?? this.buyerDocument,
       payments: payments ?? this.payments,
+      ownerPayouts: ownerPayouts ?? this.ownerPayouts,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       createdByUid: createdByUid ?? this.createdByUid,
@@ -166,6 +190,7 @@ class ActiveSale {
       buyerPhone: _cleanOptional(buyerPhone),
       buyerDocument: _cleanOptional(buyerDocument),
       payments: payments,
+      ownerPayouts: ownerPayouts,
       createdAt: createdAt,
       updatedAt: updatedAt,
       createdByUid: createdByUid,

@@ -2,17 +2,21 @@ import 'package:flutter/material.dart';
 import '../../core/brazilian_input_formatters.dart';
 import '../../core/validators.dart';
 
-/// Bloco reutilizável com os campos opcionais do comprador e máscaras brasileiras.
+/// Bloco reutilizável com os campos opcionais de pessoa (comprador ou proprietário consignante) e máscaras brasileiras.
 class BuyerFieldsSection extends StatelessWidget {
   final TextEditingController nameController;
   final TextEditingController phoneController;
   final TextEditingController documentController;
+  final String nameLabel;
+  final String nameHint;
 
   const BuyerFieldsSection({
     super.key,
     required this.nameController,
     required this.phoneController,
     required this.documentController,
+    this.nameLabel = 'Nome do comprador',
+    this.nameHint = 'Ex: João da Silva',
   });
 
   @override
@@ -25,10 +29,10 @@ class BuyerFieldsSection extends StatelessWidget {
           textCapitalization: TextCapitalization.words,
           textInputAction: TextInputAction.next,
           autofillHints: const [AutofillHints.name],
-          decoration: const InputDecoration(
-            labelText: 'Nome do comprador',
-            hintText: 'Ex: João da Silva',
-            prefixIcon: Icon(Icons.person_outline, size: 18),
+          decoration: InputDecoration(
+            labelText: nameLabel,
+            hintText: nameHint,
+            prefixIcon: const Icon(Icons.person_outline, size: 18),
             fillColor: Colors.white,
             hoverColor: Colors.white,
           ),

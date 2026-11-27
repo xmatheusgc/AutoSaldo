@@ -16,20 +16,130 @@ class FinancialCalculator {
     return totals;
   }
 
-  /// Calcula o custo total usando mapa pré-agregado O(1)
+  /// Pré-agrega despesas válidas marcadas para descontar do repasse ao proprietário (consignado)
+  static Map<String, int> aggregateDeductedExpensesByVehicle(List<Expense> expenses) {
+    final Map<String, int> totals = {};
+    for (final e in expenses) {
+      if (e.isValid && e.deductFromConsignmentPayout) {
+        totals[e.vehicleId] = (totals[e.vehicleId] ?? 0) + e.amountCents;
+      }
+    }
+    return totals;
+  }
+
+  /// Calcula o repasse base acordado com o proprietário (antes de descontos de despesas).
+  /// Retorna `null` para veículos próprios ou quando depende do preço e [priceCents] não foi informado.
+  static int? calculateOwnerBasePayoutCents(
+    Vehicle vehicle, {
+    int? priceCents,
+  }) {
+    if (!vehicle.isConsigned) return null;
+    switch (vehicle.consignmentType) {
+      case AppConstants.consignmentTypeCommissionPercent:
+        if (priceCents == null) return null;
+        final bps = vehicle.consignmentCommissionBps ?? 0;
+        final commission = ((priceCents * bps) / 10000.0).round();
+        final payout = priceCents - commission;
+        return payout > 0 ? payout : 0;
+      case AppConstants.consignmentTypeCommissionFixed:
+        if (priceCents == null) return null;
+        final payout = priceCents - vehicle.consignmentAgreementValueCents;
+        return payout > 0 ? payout : 0;
+      case AppConstants.consignmentTypeFixedPayout:
+      default:
+        return vehicle.consignmentAgreementValueCents;
+    }
+  }
+
+  /// Calcula o repasse líquido devido ao proprietário após descontar despesas marcadas para desconto.
+  static int? calculateOwnerNetPayoutCentsFromMap(
+    Vehicle vehicle,
+    Map<String, int> deductedByVehicle, {
+    int? priceCents,
+  }) {
+    final base = calculateOwnerBasePayoutCents(vehicle, priceCents: priceCents);
+    if (base == null) return null;
+    final deducted = deductedByVehicle[vehicle.id] ?? 0;
+    final net = base - deducted;
+    return net > 0 ? net : 0;
+  }
+
+  /// Versão em lista de [calculateOwnerNetPayoutCentsFromMap].
+  static int? calculateOwnerNetPayoutCents(
+    Vehicle vehicle,
+    List<Expense> expenses, {
+    int? priceCents,
+  }) {
+    if (!vehicle.isConsigned) return null;
+    int deducted = 0;
+    for (final e in expenses) {
+      if (e.vehicleId == vehicle.id && e.isValid && e.deductFromConsignmentPayout) {
+        deducted += e.amountCents;
+      }
+    }
+    final base = calculateOwnerBasePayoutCents(vehicle, priceCents: priceCents);
+    if (base == null) return null;
+    final net = base - deducted;
+    return net > 0 ? net : 0;
+  }
+
+  /// Saldo restante a repassar ao proprietário em um veículo consignado vendido.
+  static int calculateOwnerPayoutDueCentsFromMap(
+    Vehicle vehicle,
+    Map<String, int> deductedByVehicle,
+  ) {
+    if (!vehicle.isConsigned || vehicle.activeSale == null) return 0;
+    final net = calculateOwnerNetPayoutCentsFromMap(
+          vehicle,
+          deductedByVehicle,
+          priceCents: vehicle.activeSale!.salePriceCents,
+        ) ??
+        0;
+    final due = net - vehicle.activeSale!.totalOwnerPayoutPaidCents;
+    return due > 0 ? due : 0;
+  }
+
+  /// Versão em lista de [calculateOwnerPayoutDueCentsFromMap].
+  static int calculateOwnerPayoutDueCents(Vehicle vehicle, List<Expense> expenses) {
+    if (!vehicle.isConsigned || vehicle.activeSale == null) return 0;
+    final net = calculateOwnerNetPayoutCents(
+          vehicle,
+          expenses,
+          priceCents: vehicle.activeSale!.salePriceCents,
+        ) ??
+        0;
+    final due = net - vehicle.activeSale!.totalOwnerPayoutPaidCents;
+    return due > 0 ? due : 0;
+  }
+
+  /// Calcula o custo próprio investido usando mapa pré-agregado O(1).
+  /// Para próprios: compra + despesas válidas. Para consignados: apenas despesas válidas da loja.
   static int calculateVehicleTotalCostFromMap(
     Vehicle vehicle,
     Map<String, int> expensesByVehicle,
   ) {
-    return vehicle.purchasePriceCents + (expensesByVehicle[vehicle.id] ?? 0);
+    final base = vehicle.isConsigned ? 0 : vehicle.purchasePriceCents;
+    return base + (expensesByVehicle[vehicle.id] ?? 0);
   }
 
   /// Lucro estimado usando mapa pré-agregado O(1)
   static int? calculateEstimatedProfitFromMap(
     Vehicle vehicle,
-    Map<String, int> expensesByVehicle,
-  ) {
+    Map<String, int> expensesByVehicle, {
+    Map<String, int> deductedByVehicle = const {},
+  }) {
     if (vehicle.announcedPriceCents == null) return null;
+    if (vehicle.isConsigned) {
+      final netPayout = calculateOwnerNetPayoutCentsFromMap(
+        vehicle,
+        deductedByVehicle,
+        priceCents: vehicle.announcedPriceCents,
+      );
+      if (netPayout == null) return null;
+      return vehicle.announcedPriceCents! -
+          netPayout -
+          (expensesByVehicle[vehicle.id] ?? 0);
+    }
     return vehicle.announcedPriceCents! -
         calculateVehicleTotalCostFromMap(vehicle, expensesByVehicle);
   }
@@ -37,16 +147,28 @@ class FinancialCalculator {
   /// Lucro realizado usando mapa pré-agregado O(1)
   static int? calculateRealizedProfitFromMap(
     Vehicle vehicle,
-    Map<String, int> expensesByVehicle,
-  ) {
+    Map<String, int> expensesByVehicle, {
+    Map<String, int> deductedByVehicle = const {},
+  }) {
     if (vehicle.activeSale == null) return null;
+    if (vehicle.isConsigned) {
+      final netPayout = calculateOwnerNetPayoutCentsFromMap(
+            vehicle,
+            deductedByVehicle,
+            priceCents: vehicle.activeSale!.salePriceCents,
+          ) ??
+          0;
+      return vehicle.activeSale!.salePriceCents -
+          netPayout -
+          (expensesByVehicle[vehicle.id] ?? 0);
+    }
     return vehicle.activeSale!.salePriceCents -
         calculateVehicleTotalCostFromMap(vehicle, expensesByVehicle);
   }
 
-  /// Calcula o custo total do veículo: valor da compra + despesas válidas
+  /// Calcula o custo próprio investido no veículo: compra (se próprio) + despesas válidas
   static int calculateVehicleTotalCost(Vehicle vehicle, List<Expense> expenses) {
-    int total = vehicle.purchasePriceCents;
+    int total = vehicle.isConsigned ? 0 : vehicle.purchasePriceCents;
     for (final e in expenses) {
       if (e.vehicleId == vehicle.id && e.isValid) {
         total += e.amountCents;
@@ -60,16 +182,36 @@ class FinancialCalculator {
     return expenses.where((e) => e.vehicleId == vehicle.id && e.isValid).toList();
   }
 
-  /// Lucro estimado para carro em estoque com preço anunciado (preço anunciado - custo total)
+  /// Lucro estimado para carro em estoque com preço anunciado
   static int? calculateEstimatedProfit(Vehicle vehicle, List<Expense> expenses) {
     if (vehicle.announcedPriceCents == null) return null;
+    if (vehicle.isConsigned) {
+      final netPayout = calculateOwnerNetPayoutCents(
+        vehicle,
+        expenses,
+        priceCents: vehicle.announcedPriceCents,
+      );
+      if (netPayout == null) return null;
+      final totalExpenses = calculateVehicleTotalCost(vehicle, expenses);
+      return vehicle.announcedPriceCents! - netPayout - totalExpenses;
+    }
     final totalCost = calculateVehicleTotalCost(vehicle, expenses);
     return vehicle.announcedPriceCents! - totalCost;
   }
 
-  /// Lucro realizado por carro vendido (preço final negociado - custo total, incluindo despesas posteriores)
+  /// Lucro realizado por carro vendido (preço final negociado - repasse/compra - despesas válidas)
   static int? calculateRealizedProfit(Vehicle vehicle, List<Expense> expenses) {
     if (vehicle.activeSale == null) return null;
+    if (vehicle.isConsigned) {
+      final netPayout = calculateOwnerNetPayoutCents(
+            vehicle,
+            expenses,
+            priceCents: vehicle.activeSale!.salePriceCents,
+          ) ??
+          0;
+      final totalExpenses = calculateVehicleTotalCost(vehicle, expenses);
+      return vehicle.activeSale!.salePriceCents - netPayout - totalExpenses;
+    }
     final totalCost = calculateVehicleTotalCost(vehicle, expenses);
     return vehicle.activeSale!.salePriceCents - totalCost;
   }
@@ -91,16 +233,21 @@ class FinancialCalculator {
     return DateTime(y, m, d);
   }
 
-  /// Calcula quantos dias o veículo ficou (ou está) no pátio entre compra e venda/hoje.
+  /// Calcula quantos dias o veículo ficou (ou está) no pátio entre entrada e venda/devolução/hoje.
   static int calculateDaysInStock(Vehicle vehicle, {DateTime? now}) {
     final start = _parseIsoLocalDate(vehicle.purchaseDate);
     if (start == null) return 0;
 
     final refNow = now ?? DateTime.now();
     final today = DateTime(refNow.year, refNow.month, refNow.day);
-    final end = vehicle.activeSale != null
-        ? (_parseIsoLocalDate(vehicle.activeSale!.saleDate) ?? today)
-        : today;
+    final DateTime end;
+    if (vehicle.activeSale != null) {
+      end = _parseIsoLocalDate(vehicle.activeSale!.saleDate) ?? today;
+    } else if (vehicle.isReturned && vehicle.consignmentReturnedDate != null) {
+      end = _parseIsoLocalDate(vehicle.consignmentReturnedDate!) ?? today;
+    } else {
+      end = today;
+    }
 
     return end.difference(start).inDays.clamp(0, 100000);
   }
@@ -109,6 +256,22 @@ class FinancialCalculator {
   static double? calculateRoiPercent(int profitCents, int totalCostCents) {
     if (totalCostCents <= 0) return null;
     return (profitCents / totalCostCents) * 100.0;
+  }
+
+  /// Calcula o percentual exibido na linha/ficha do veículo:
+  /// - Próprio: ROI % sobre custo total
+  /// - Consignado: Margem % sobre o preço de referência (venda ou anúncio)
+  static double? calculateVehiclePercentMetric(
+    Vehicle vehicle, {
+    required int profitCents,
+    required int totalCostCents,
+    required int? priceCents,
+  }) {
+    if (vehicle.isConsigned) {
+      if (priceCents == null || priceCents <= 0) return null;
+      return (profitCents / priceCents) * 100.0;
+    }
+    return calculateRoiPercent(profitCents, totalCostCents);
   }
 
   /// Agrupa gastos válidos por categoria (opcionalmente filtrado por prefixo YYYY-MM).
@@ -135,8 +298,9 @@ class FinancialCalculator {
   }) {
     final monthPrefix = '$year-${month.toString().padLeft(2, '0')}';
     final expensesByVehicle = aggregateValidExpensesByVehicle(allExpenses);
+    final deductedByVehicle = aggregateDeductedExpensesByVehicle(allExpenses);
 
-    // 1. Lucro, custo total e giro dos carros vendidos no mês
+    // 1. Lucro, custo/repasse efetivo e giro dos carros vendidos no mês
     int soldVehiclesProfitCents = 0;
     int soldVehiclesCostCents = 0;
     int soldInMonthCount = 0;
@@ -145,10 +309,19 @@ class FinancialCalculator {
     for (final vehicle in allVehicles) {
       if (vehicle.activeSale != null && vehicle.activeSale!.saleDate.startsWith(monthPrefix)) {
         soldInMonthCount++;
-        final cost = calculateVehicleTotalCostFromMap(vehicle, expensesByVehicle);
-        soldVehiclesCostCents += cost;
+        final vehicleExpenses = expensesByVehicle[vehicle.id] ?? 0;
+        final effectiveCost = vehicle.isConsigned
+            ? ((calculateOwnerNetPayoutCentsFromMap(
+                      vehicle,
+                      deductedByVehicle,
+                      priceCents: vehicle.activeSale!.salePriceCents,
+                    ) ??
+                    0) +
+                vehicleExpenses)
+            : (vehicle.purchasePriceCents + vehicleExpenses);
+        soldVehiclesCostCents += effectiveCost;
         soldDaysSum += calculateDaysInStock(vehicle, now: now);
-        final profit = vehicle.activeSale!.salePriceCents - cost;
+        final profit = vehicle.activeSale!.salePriceCents - effectiveCost;
         soldVehiclesProfitCents += profit;
       }
     }
@@ -158,7 +331,7 @@ class FinancialCalculator {
         : null;
     final avgDaysToSell = soldInMonthCount > 0 ? soldDaysSum / soldInMonthCount : null;
 
-    // 2. Entradas no mês
+    // 2. Entradas no mês (recebimentos de compradores)
     int monthIncomeCents = 0;
     for (final vehicle in allVehicles) {
       if (vehicle.activeSale != null) {
@@ -170,11 +343,18 @@ class FinancialCalculator {
       }
     }
 
-    // 3. Saídas no mês + gastos por categoria
+    // 3. Saídas no mês (compras próprias + repasses pagos a consignantes + despesas do mês)
     int monthExpensesCents = 0;
     for (final vehicle in allVehicles) {
-      if (vehicle.purchaseDate.startsWith(monthPrefix)) {
+      if (!vehicle.isConsigned && vehicle.purchaseDate.startsWith(monthPrefix)) {
         monthExpensesCents += vehicle.purchasePriceCents;
+      }
+      if (vehicle.isConsigned && vehicle.activeSale != null) {
+        for (final payout in vehicle.activeSale!.ownerPayouts) {
+          if (payout.isValid && payout.date.startsWith(monthPrefix)) {
+            monthExpensesCents += payout.amountCents;
+          }
+        }
       }
     }
     final Map<String, int> monthExpensesByCategory = {};
@@ -192,12 +372,16 @@ class FinancialCalculator {
     // 5. Investido no estoque atual + idade média + carros parados (+45d)
     int currentStockInvestmentCents = 0;
     int stockCount = 0;
+    int consignedStockCount = 0;
     int stockAgeSum = 0;
     int stagnantStockCount = 0;
 
     for (final vehicle in allVehicles) {
       if (vehicle.isInStock) {
         stockCount++;
+        if (vehicle.isConsigned) {
+          consignedStockCount++;
+        }
         currentStockInvestmentCents +=
             calculateVehicleTotalCostFromMap(vehicle, expensesByVehicle);
         final days = calculateDaysInStock(vehicle, now: now);
@@ -210,14 +394,25 @@ class FinancialCalculator {
 
     final avgStockAgeDays = stockCount > 0 ? stockAgeSum / stockCount : null;
 
-    // 6. A receber hoje (saldo das vendas ativas, independente do mês)
+    // 6. A receber hoje e repasses pendentes a consignantes
     int toReceiveTodayCents = 0;
     int pendingReceiveVehiclesCount = 0;
+    int toPayConsignorsTodayCents = 0;
+    int pendingPayoutVehiclesCount = 0;
     for (final vehicle in allVehicles) {
       if (vehicle.isSold) {
         final due = calculateBalanceDue(vehicle);
         toReceiveTodayCents += due;
         if (due > 0) pendingReceiveVehiclesCount++;
+
+        if (vehicle.isConsigned) {
+          final payoutDue = calculateOwnerPayoutDueCentsFromMap(
+            vehicle,
+            deductedByVehicle,
+          );
+          toPayConsignorsTodayCents += payoutDue;
+          if (payoutDue > 0) pendingPayoutVehiclesCount++;
+        }
       }
     }
 
@@ -239,6 +434,9 @@ class FinancialCalculator {
       stagnantStockCount: stagnantStockCount,
       monthExpensesByCategory: monthExpensesByCategory,
       pendingReceiveVehiclesCount: pendingReceiveVehiclesCount,
+      consignedStockCount: consignedStockCount,
+      toPayConsignorsTodayCents: toPayConsignorsTodayCents,
+      pendingPayoutVehiclesCount: pendingPayoutVehiclesCount,
     );
   }
 
@@ -248,6 +446,18 @@ class FinancialCalculator {
     if (estimatedProfitCents < 0) return true;
     final roi = calculateRoiPercent(estimatedProfitCents, totalCostCents);
     return roi != null && roi < AppConstants.lowMarginRoiThresholdPercent;
+  }
+
+  /// Versão ciente de veículo consignado: para consignados, alerta apenas prejuízo previsto (< 0).
+  static bool isTightMarginForVehicle(
+    Vehicle vehicle,
+    int? estimatedProfitCents,
+    int totalCostCents,
+  ) {
+    if (estimatedProfitCents == null) return false;
+    if (estimatedProfitCents < 0) return true;
+    if (vehicle.isConsigned) return false;
+    return isTightMargin(estimatedProfitCents, totalCostCents);
   }
 
   static String _canonicalBrandKey(String rawBrand) {
@@ -346,6 +556,7 @@ class FinancialCalculator {
   }) {
     final refNow = now ?? DateTime.now();
     final expensesByVehicle = aggregateValidExpensesByVehicle(allExpenses);
+    final deductedByVehicle = aggregateDeductedExpensesByVehicle(allExpenses);
 
     // Conta quantos veículos de cada modelo estão em estoque no momento
     final inStockByModelKey = <String, int>{};
@@ -369,7 +580,15 @@ class FinancialCalculator {
       if (sale == null || !_matchesWindow(sale.saleDate, window, refNow)) continue;
 
       final vehicleExpenses = expensesByVehicle[vehicle.id] ?? 0;
-      final totalCost = vehicle.purchasePriceCents + vehicleExpenses;
+      final acquisitionOrPayout = vehicle.isConsigned
+          ? (calculateOwnerNetPayoutCentsFromMap(
+                vehicle,
+                deductedByVehicle,
+                priceCents: sale.salePriceCents,
+              ) ??
+              0)
+          : vehicle.purchasePriceCents;
+      final totalCost = acquisitionOrPayout + vehicleExpenses;
       final profit = sale.salePriceCents - totalCost;
       final days = calculateDaysInStock(vehicle, now: refNow);
 
@@ -393,7 +612,7 @@ class FinancialCalculator {
         modelAcc.brand = vehicle.brand.trim();
       }
       modelAcc.soldVehicles.add(vehicle);
-      modelAcc.totalPurchaseCents += vehicle.purchasePriceCents;
+      modelAcc.totalPurchaseCents += acquisitionOrPayout;
       modelAcc.totalExpensesCents += vehicleExpenses;
       modelAcc.totalCostCents += totalCost;
       modelAcc.totalSaleCents += sale.salePriceCents;

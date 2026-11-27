@@ -44,6 +44,26 @@ class AppConstants {
   static const String statusValid = 'valid';
   static const String statusReverted = 'reverted';
 
+  // Origem / propriedade do veículo
+  static const String ownershipOwn = 'own';
+  static const String ownershipConsigned = 'consigned';
+
+  static const Map<String, String> ownershipLabels = {
+    ownershipOwn: 'Próprio',
+    ownershipConsigned: 'Consignado',
+  };
+
+  // Modelo de acerto da consignação
+  static const String consignmentTypeFixedPayout = 'fixed_payout';
+  static const String consignmentTypeCommissionPercent = 'commission_percent';
+  static const String consignmentTypeCommissionFixed = 'commission_fixed';
+
+  static const Map<String, String> consignmentTypeLabels = {
+    consignmentTypeFixedPayout: 'Repasse fixo',
+    consignmentTypeCommissionPercent: 'Comissão %',
+    consignmentTypeCommissionFixed: 'Comissão fixa',
+  };
+
   // Status financeiro da venda
   static const String paymentStatusSettled = 'settled'; // Quitado
   static const String paymentStatusPartial = 'partial'; // Parcial

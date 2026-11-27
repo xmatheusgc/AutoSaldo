@@ -22,6 +22,17 @@ class Vehicle {
   final String docStatus; // 'pending_check', 'up_to_date', 'with_issue'
   final String? docNotes;
 
+  // Origem e consignação
+  final String ownershipType; // 'own' ou 'consigned'
+  final String consignmentType; // 'fixed_payout', 'commission_percent', 'commission_fixed'
+  final int consignmentAgreementValueCents;
+  final int? consignmentCommissionBps; // Ex: 500 = 5,00%
+  final String? consignorName;
+  final String? consignorPhone;
+  final String? consignorDocument;
+  final String? consignmentReturnedDate; // AAAA-MM-DD (devolvido ao proprietário)
+  final String? consignmentReturnedNotes;
+
   // Venda ativa do ciclo
   final ActiveSale? activeSale;
 
@@ -52,6 +63,15 @@ class Vehicle {
     this.crvNumber,
     this.docStatus = AppConstants.docStatusPendingCheck,
     this.docNotes,
+    this.ownershipType = AppConstants.ownershipOwn,
+    this.consignmentType = AppConstants.consignmentTypeFixedPayout,
+    this.consignmentAgreementValueCents = 0,
+    this.consignmentCommissionBps,
+    this.consignorName,
+    this.consignorPhone,
+    this.consignorDocument,
+    this.consignmentReturnedDate,
+    this.consignmentReturnedNotes,
     this.activeSale,
     this.cancelledSales = const [],
     required this.createdAt,
@@ -62,16 +82,37 @@ class Vehicle {
     this.updatedByEmail,
   });
 
-  bool get isInStock => activeSale == null;
+  bool get isConsigned => ownershipType == AppConstants.ownershipConsigned;
+  bool get isOwn => !isConsigned;
+  bool get isReturned =>
+      isConsigned &&
+      consignmentReturnedDate != null &&
+      consignmentReturnedDate!.isNotEmpty;
+  bool get isInStock => activeSale == null && !isReturned;
   bool get isSold => activeSale != null;
+
+  bool get hasConsignorInfo =>
+      (consignorName != null && consignorName!.isNotEmpty) ||
+      (consignorPhone != null && consignorPhone!.isNotEmpty) ||
+      (consignorDocument != null && consignorDocument!.isNotEmpty);
 
   String get formattedPlate => Formatters.formatPlate(plate);
   String get docStatusLabel =>
       AppConstants.docStatusLabels[docStatus] ?? docStatus;
+  String get ownershipLabel =>
+      AppConstants.ownershipLabels[ownershipType] ?? ownershipType;
+  String get consignmentTypeLabel =>
+      AppConstants.consignmentTypeLabels[consignmentType] ?? consignmentType;
 
   String get title => version != null && version!.isNotEmpty
       ? '$brand $model $version'
       : '$brand $model';
+
+  static String? _cleanOptional(dynamic raw) {
+    if (raw == null) return null;
+    final trimmed = raw.toString().trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -90,6 +131,17 @@ class Vehicle {
       'crvNumber': crvNumber,
       'docStatus': docStatus,
       'docNotes': docNotes,
+      'ownershipType': ownershipType,
+      if (isConsigned) ...{
+        'consignmentType': consignmentType,
+        'consignmentAgreementValueCents': consignmentAgreementValueCents,
+        'consignmentCommissionBps': consignmentCommissionBps,
+        'consignorName': consignorName,
+        'consignorPhone': consignorPhone,
+        'consignorDocument': consignorDocument,
+        'consignmentReturnedDate': consignmentReturnedDate,
+        'consignmentReturnedNotes': consignmentReturnedNotes,
+      },
       'activeSale': activeSale?.toMap(),
       'cancelledSales': cancelledSales,
       'createdAt': createdAt.toIso8601String(),
@@ -112,6 +164,17 @@ class Vehicle {
         .map((item) => Map<String, dynamic>.from(item as Map))
         .toList();
 
+    final rawOwnership = map['ownershipType'] as String?;
+    final ownershipType = rawOwnership == AppConstants.ownershipConsigned
+        ? AppConstants.ownershipConsigned
+        : AppConstants.ownershipOwn;
+
+    final rawConsignmentType = map['consignmentType'] as String?;
+    final consignmentType =
+        AppConstants.consignmentTypeLabels.containsKey(rawConsignmentType)
+            ? rawConsignmentType!
+            : AppConstants.consignmentTypeFixedPayout;
+
     return Vehicle(
       id: id,
       brand: map['brand'] as String? ?? '',
@@ -129,6 +192,17 @@ class Vehicle {
       crvNumber: map['crvNumber'] as String?,
       docStatus: map['docStatus'] as String? ?? AppConstants.docStatusPendingCheck,
       docNotes: map['docNotes'] as String?,
+      ownershipType: ownershipType,
+      consignmentType: consignmentType,
+      consignmentAgreementValueCents:
+          (map['consignmentAgreementValueCents'] as num?)?.toInt() ?? 0,
+      consignmentCommissionBps:
+          (map['consignmentCommissionBps'] as num?)?.toInt(),
+      consignorName: _cleanOptional(map['consignorName']),
+      consignorPhone: _cleanOptional(map['consignorPhone']),
+      consignorDocument: _cleanOptional(map['consignorDocument']),
+      consignmentReturnedDate: _cleanOptional(map['consignmentReturnedDate']),
+      consignmentReturnedNotes: _cleanOptional(map['consignmentReturnedNotes']),
       activeSale: sale,
       cancelledSales: cancelledList,
       createdAt: map['createdAt'] != null
@@ -161,6 +235,16 @@ class Vehicle {
     String? crvNumber,
     String? docStatus,
     String? docNotes,
+    String? ownershipType,
+    String? consignmentType,
+    int? consignmentAgreementValueCents,
+    int? consignmentCommissionBps,
+    String? consignorName,
+    String? consignorPhone,
+    String? consignorDocument,
+    String? consignmentReturnedDate,
+    String? consignmentReturnedNotes,
+    bool clearConsignmentReturn = false,
     ActiveSale? activeSale,
     bool clearActiveSale = false,
     List<Map<String, dynamic>>? cancelledSales,
@@ -188,6 +272,21 @@ class Vehicle {
       crvNumber: crvNumber ?? this.crvNumber,
       docStatus: docStatus ?? this.docStatus,
       docNotes: docNotes ?? this.docNotes,
+      ownershipType: ownershipType ?? this.ownershipType,
+      consignmentType: consignmentType ?? this.consignmentType,
+      consignmentAgreementValueCents:
+          consignmentAgreementValueCents ?? this.consignmentAgreementValueCents,
+      consignmentCommissionBps:
+          consignmentCommissionBps ?? this.consignmentCommissionBps,
+      consignorName: consignorName ?? this.consignorName,
+      consignorPhone: consignorPhone ?? this.consignorPhone,
+      consignorDocument: consignorDocument ?? this.consignorDocument,
+      consignmentReturnedDate: clearConsignmentReturn
+          ? null
+          : (consignmentReturnedDate ?? this.consignmentReturnedDate),
+      consignmentReturnedNotes: clearConsignmentReturn
+          ? null
+          : (consignmentReturnedNotes ?? this.consignmentReturnedNotes),
       activeSale: clearActiveSale ? null : (activeSale ?? this.activeSale),
       cancelledSales: cancelledSales ?? this.cancelledSales,
       createdAt: createdAt ?? this.createdAt,

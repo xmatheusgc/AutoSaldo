@@ -65,16 +65,27 @@ service cloud.firestore {
         sale.id is string &&
         isValidDate(sale.saleDate) &&
         sale.salePriceCents is int && sale.salePriceCents > 0 &&
-        sale.payments is list
+        sale.payments is list &&
+        (!('ownerPayouts' in sale) || sale.ownerPayouts is list)
       );
     }
 
     function isValidVehicle(data) {
+      let ownership = ('ownershipType' in data && data.ownershipType != null)
+        ? data.ownershipType
+        : 'own';
       return data.brand is string && data.brand.size() > 0 &&
         data.model is string && data.model.size() > 0 &&
         isValidPlate(data.plate) &&
         isValidDate(data.purchaseDate) &&
-        data.purchasePriceCents is int && data.purchasePriceCents > 0 &&
+        ownership in ['own', 'consigned'] &&
+        data.purchasePriceCents is int &&
+        ((ownership == 'own' && data.purchasePriceCents > 0) ||
+         (ownership == 'consigned' && data.purchasePriceCents >= 0)) &&
+        (!('consignmentType' in data) || data.consignmentType == null || data.consignmentType in ['fixed_payout', 'commission_percent', 'commission_fixed']) &&
+        (!('consignmentAgreementValueCents' in data) || data.consignmentAgreementValueCents == null || (data.consignmentAgreementValueCents is int && data.consignmentAgreementValueCents >= 0)) &&
+        (!('consignmentCommissionBps' in data) || data.consignmentCommissionBps == null || (data.consignmentCommissionBps is int && data.consignmentCommissionBps >= 0 && data.consignmentCommissionBps <= 10000)) &&
+        (!('consignmentReturnedDate' in data) || data.consignmentReturnedDate == null || isValidDate(data.consignmentReturnedDate)) &&
         (!('announcedPriceCents' in data) || data.announcedPriceCents == null || (data.announcedPriceCents is int && data.announcedPriceCents >= 0)) &&
         (!('renavam' in data) || data.renavam == null || (data.renavam is string && (data.renavam.size() == 0 || data.renavam.matches('^[0-9]{11}$')))) &&
         (!('docStatus' in data) || data.docStatus in ['pending_check', 'up_to_date', 'with_issue']) &&
@@ -90,6 +101,7 @@ service cloud.firestore {
         isValidDate(data.date) &&
         data.category in ['workshop', 'parts', 'documentation', 'transport', 'advertising', 'commission', 'car_wash', 'other'] &&
         data.status in ['valid', 'reverted'] &&
+        (!('deductFromConsignmentPayout' in data) || data.deductFromConsignmentPayout is bool) &&
         data.createdByUid is string &&
         data.updatedByUid is string;
     }

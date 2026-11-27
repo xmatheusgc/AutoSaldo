@@ -78,6 +78,7 @@ class ExpenseRepository {
       'date': expense.date,
       'category': expense.category,
       'description': expense.description,
+      'deductFromConsignmentPayout': expense.deductFromConsignmentPayout,
       'updatedAt': now.toIso8601String(),
       'updatedByUid': userUid,
       'updatedByEmail': ?userEmail,

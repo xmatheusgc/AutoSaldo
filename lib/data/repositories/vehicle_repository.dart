@@ -42,6 +42,14 @@ class VehicleRepository {
     });
   }
 
+  bool _isDocInStock(Map<String, dynamic> data) {
+    final activeSale = data['activeSale'];
+    final returnedDate = data['consignmentReturnedDate'];
+    final isReturned =
+        returnedDate is String && returnedDate.trim().isNotEmpty;
+    return activeSale == null && !isReturned;
+  }
+
   /// Verifica se há duplicidade de placa ou RENAVAM em veículos "Em estoque"
   Future<bool> hasStockDuplicate(
     String workspaceId, {
@@ -58,7 +66,7 @@ class VehicleRepository {
           .get();
       for (final doc in plateSnap.docs) {
         if (excludeVehicleId != null && doc.id == excludeVehicleId) continue;
-        if (doc.data()['activeSale'] == null) {
+        if (_isDocInStock(doc.data())) {
           return true;
         }
       }
@@ -70,7 +78,7 @@ class VehicleRepository {
           .get();
       for (final doc in renavamSnap.docs) {
         if (excludeVehicleId != null && doc.id == excludeVehicleId) continue;
-        if (doc.data()['activeSale'] == null) {
+        if (_isDocInStock(doc.data())) {
           return true;
         }
       }
@@ -119,6 +127,16 @@ class VehicleRepository {
         'crvNumber': vehicle.crvNumber,
         'docStatus': vehicle.docStatus,
         'docNotes': vehicle.docNotes,
+        'ownershipType': vehicle.ownershipType,
+        'consignmentType': vehicle.isConsigned ? vehicle.consignmentType : null,
+        'consignmentAgreementValueCents':
+            vehicle.isConsigned ? vehicle.consignmentAgreementValueCents : null,
+        'consignmentCommissionBps':
+            vehicle.isConsigned ? vehicle.consignmentCommissionBps : null,
+        'consignorName': vehicle.isConsigned ? vehicle.consignorName : null,
+        'consignorPhone': vehicle.isConsigned ? vehicle.consignorPhone : null,
+        'consignorDocument':
+            vehicle.isConsigned ? vehicle.consignorDocument : null,
         'updatedAt': now.toIso8601String(),
         'updatedByUid': userUid,
         'updatedByEmail': ?userEmail,
@@ -149,9 +167,16 @@ class VehicleRepository {
       if (vehicle.activeSale != null) {
         throw Exception('Este veículo já possui uma venda ativa registrada.');
       }
+      if (vehicle.isReturned) {
+        throw Exception('Este veículo consignado foi devolvido ao proprietário.');
+      }
 
       if (!Validators.isValidSaleDate(vehicle.purchaseDate, sale.saleDate)) {
-        throw Exception('A data da venda deve ser igual ou posterior à data da compra e não pode ser futura.');
+        throw Exception(
+          vehicle.isConsigned
+              ? 'A data da venda deve ser igual ou posterior à data de entrada no pátio e não pode ser futura.'
+              : 'A data da venda deve ser igual ou posterior à data da compra e não pode ser futura.',
+        );
       }
 
       final now = DateTime.now();
@@ -374,14 +399,24 @@ class VehicleRepository {
         throw Exception('O veículo já está em estoque.');
       }
 
-      if (activeSale.hasValidPayments && !revertPaymentsAtomically) {
-        throw Exception('Para cancelar uma venda, todos os recebimentos ativos devem ser estornados previamente.');
+      final hasActiveEntries =
+          activeSale.hasValidPayments || activeSale.hasValidOwnerPayouts;
+      if (hasActiveEntries && !revertPaymentsAtomically) {
+        throw Exception('Para cancelar uma venda, todos os recebimentos e repasses ativos devem ser estornados previamente.');
       }
 
       final now = DateTime.now();
       ActiveSale saleToArchive = activeSale;
-      if (activeSale.hasValidPayments && revertPaymentsAtomically) {
+      if (hasActiveEntries && revertPaymentsAtomically) {
         final revertedPayments = activeSale.payments.map((p) {
+          if (!p.isValid) return p;
+          return p.copyWith(
+            status: AppConstants.statusReverted,
+            revertedAt: now,
+            revertedByUid: userUid,
+          );
+        }).toList();
+        final revertedPayouts = activeSale.ownerPayouts.map((p) {
           if (!p.isValid) return p;
           return p.copyWith(
             status: AppConstants.statusReverted,
@@ -391,6 +426,7 @@ class VehicleRepository {
         }).toList();
         saleToArchive = activeSale.copyWith(
           payments: revertedPayments,
+          ownerPayouts: revertedPayouts,
           updatedAt: now,
           updatedByUid: userUid,
         );
@@ -399,7 +435,7 @@ class VehicleRepository {
       final cancelledRecord = saleToArchive.toMap();
       cancelledRecord['cancelledAt'] = now.toIso8601String();
       cancelledRecord['cancelledByUid'] = userUid;
-      if (activeSale.hasValidPayments && revertPaymentsAtomically) {
+      if (hasActiveEntries && revertPaymentsAtomically) {
         cancelledRecord['revertedPaymentsAtomically'] = true;
       }
 
@@ -409,6 +445,176 @@ class VehicleRepository {
       transaction.update(docRef, {
         'activeSale': null,
         'cancelledSales': updatedCancelledSales,
+        'updatedAt': now.toIso8601String(),
+        'updatedByUid': userUid,
+      });
+    });
+  }
+
+  /// Registra um repasse pago ao proprietário em venda de veículo consignado
+  Future<void> addOwnerPayout({
+    required String workspaceId,
+    required String vehicleId,
+    required Payment payout,
+    required int maxNetPayoutCents,
+    required String userUid,
+  }) async {
+    final docRef = _vehiclesCol(workspaceId).doc(vehicleId);
+
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(docRef);
+      if (!snapshot.exists || snapshot.data() == null) {
+        throw Exception('Veículo não encontrado.');
+      }
+
+      final vehicle = Vehicle.fromMap(snapshot.id, snapshot.data()!);
+      if (!vehicle.isConsigned) {
+        throw Exception('Apenas veículos consignados possuem repasse ao proprietário.');
+      }
+      final activeSale = vehicle.activeSale;
+      if (activeSale == null) {
+        throw Exception('Não é possível registrar repasse para um veículo não vendido.');
+      }
+
+      if (!Validators.isValidPaymentDate(activeSale.saleDate, payout.date)) {
+        throw Exception('A data do repasse deve ser igual ou posterior à data da venda e não pode ser futura.');
+      }
+
+      final newTotal = activeSale.totalOwnerPayoutPaidCents + payout.amountCents;
+      if (newTotal > maxNetPayoutCents) {
+        throw Exception('O total repassado não pode ultrapassar o repasse líquido combinado.');
+      }
+
+      final now = DateTime.now();
+      final updatedPayouts = List<Payment>.from(activeSale.ownerPayouts)
+        ..add(payout.copyWith(
+          createdAt: now,
+          createdByUid: userUid,
+        ));
+
+      final updatedSale = activeSale.copyWith(
+        ownerPayouts: updatedPayouts,
+        updatedAt: now,
+        updatedByUid: userUid,
+      );
+
+      transaction.update(docRef, {
+        'activeSale': updatedSale.toMap(),
+        'updatedAt': now.toIso8601String(),
+        'updatedByUid': userUid,
+      });
+    });
+  }
+
+  /// Estorna um repasse ao proprietário registrado em transação
+  Future<void> revertOwnerPayout({
+    required String workspaceId,
+    required String vehicleId,
+    required String payoutId,
+    required String userUid,
+  }) async {
+    final docRef = _vehiclesCol(workspaceId).doc(vehicleId);
+
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(docRef);
+      if (!snapshot.exists || snapshot.data() == null) {
+        throw Exception('Veículo não encontrado.');
+      }
+
+      final vehicle = Vehicle.fromMap(snapshot.id, snapshot.data()!);
+      final activeSale = vehicle.activeSale;
+      if (activeSale == null) {
+        throw Exception('Venda ativa não encontrada.');
+      }
+
+      final now = DateTime.now();
+      final updatedPayouts = activeSale.ownerPayouts.map((p) {
+        if (p.id == payoutId) {
+          return p.copyWith(
+            status: AppConstants.statusReverted,
+            revertedAt: now,
+            revertedByUid: userUid,
+          );
+        }
+        return p;
+      }).toList();
+
+      final updatedSale = activeSale.copyWith(
+        ownerPayouts: updatedPayouts,
+        updatedAt: now,
+        updatedByUid: userUid,
+      );
+
+      transaction.update(docRef, {
+        'activeSale': updatedSale.toMap(),
+        'updatedAt': now.toIso8601String(),
+        'updatedByUid': userUid,
+      });
+    });
+  }
+
+  /// Marca um veículo consignado em estoque como devolvido ao proprietário
+  Future<void> returnConsignedVehicle({
+    required String workspaceId,
+    required String vehicleId,
+    required String returnedDate,
+    String? notes,
+    required String userUid,
+  }) async {
+    final docRef = _vehiclesCol(workspaceId).doc(vehicleId);
+
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(docRef);
+      if (!snapshot.exists || snapshot.data() == null) {
+        throw Exception('Veículo não encontrado.');
+      }
+
+      final vehicle = Vehicle.fromMap(snapshot.id, snapshot.data()!);
+      if (!vehicle.isConsigned) {
+        throw Exception('Apenas veículos consignados podem ser devolvidos ao proprietário.');
+      }
+      if (vehicle.activeSale != null) {
+        throw Exception('Não é possível devolver um veículo com venda ativa.');
+      }
+      if (!Validators.isValidSaleDate(vehicle.purchaseDate, returnedDate)) {
+        throw Exception('A data de devolução deve ser igual ou posterior à entrada no pátio e não pode ser futura.');
+      }
+
+      final now = DateTime.now();
+      final trimmedNotes = notes?.trim();
+      transaction.update(docRef, {
+        'consignmentReturnedDate': returnedDate,
+        'consignmentReturnedNotes':
+            (trimmedNotes != null && trimmedNotes.isNotEmpty) ? trimmedNotes : null,
+        'updatedAt': now.toIso8601String(),
+        'updatedByUid': userUid,
+      });
+    });
+  }
+
+  /// Reabre um veículo consignado devolvido, retornando-o ao estoque
+  Future<void> reopenConsignedVehicle({
+    required String workspaceId,
+    required String vehicleId,
+    required String userUid,
+  }) async {
+    final docRef = _vehiclesCol(workspaceId).doc(vehicleId);
+
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(docRef);
+      if (!snapshot.exists || snapshot.data() == null) {
+        throw Exception('Veículo não encontrado.');
+      }
+
+      final vehicle = Vehicle.fromMap(snapshot.id, snapshot.data()!);
+      if (!vehicle.isConsigned || !vehicle.isReturned) {
+        throw Exception('Este veículo não está marcado como devolvido.');
+      }
+
+      final now = DateTime.now();
+      transaction.update(docRef, {
+        'consignmentReturnedDate': null,
+        'consignmentReturnedNotes': null,
         'updatedAt': now.toIso8601String(),
         'updatedByUid': userUid,
       });

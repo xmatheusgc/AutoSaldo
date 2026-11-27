@@ -319,6 +319,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
   void _showSoldVehiclesDrillDown(
     List<Vehicle> allVehicles,
     Map<String, int> expensesByVehicle,
+    Map<String, int> deductedByVehicle,
   ) {
     final monthPrefix = '$_selectedYear-${_selectedMonth.toString().padLeft(2, '0')}';
     final soldItems = allVehicles
@@ -334,17 +335,27 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
       items: soldItems,
       itemBuilder: (ctx, v) {
         final cost = FinancialCalculator.calculateVehicleTotalCostFromMap(v, expensesByVehicle);
-        final profit = v.activeSale!.salePriceCents - cost;
-        final roi = FinancialCalculator.calculateRoiPercent(profit, cost);
+        final profit = FinancialCalculator.calculateRealizedProfitFromMap(
+              v,
+              expensesByVehicle,
+              deductedByVehicle: deductedByVehicle,
+            ) ??
+            0;
+        final pct = FinancialCalculator.calculateVehiclePercentMetric(
+          v,
+          profitCents: profit,
+          totalCostCents: cost,
+          priceCents: v.activeSale!.salePriceCents,
+        );
         final days = FinancialCalculator.calculateDaysInStock(v);
         final isLoss = profit < 0;
         return _buildDrillDownTile(
           sheetContext: ctx,
           vehicle: v,
           subtitle:
-              'Venda em ${Formatters.formatDate(v.activeSale!.saleDate)} • Giro: ${Formatters.formatDaysCount(days)}',
+              '${v.isConsigned ? "Consignado • " : ""}Venda em ${Formatters.formatDate(v.activeSale!.saleDate)} • Giro: ${Formatters.formatDaysCount(days)}',
           trailingLabel:
-              '${isLoss ? "-" : "+"}${Formatters.formatCurrency(profit.abs())}${roi != null ? " (${Formatters.formatPercent(roi)})" : ""}',
+              '${isLoss ? "-" : "+"}${Formatters.formatCurrency(profit.abs())}${pct != null ? " (${Formatters.formatPercent(pct)})" : ""}',
           trailingColor: isLoss ? AppTheme.dangerRed : AppTheme.successGreen,
         );
       },
@@ -370,8 +381,9 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
         return _buildDrillDownTile(
           sheetContext: ctx,
           vehicle: v,
-          subtitle:
-              'Pátio: ${Formatters.formatDaysCount(days)} • Investido: ${Formatters.formatCurrency(cost)}',
+          subtitle: v.isConsigned
+              ? 'Consignado • Pátio: ${Formatters.formatDaysCount(days)}${cost > 0 ? " • Despesas: ${Formatters.formatCurrency(cost)}" : ""}'
+              : 'Pátio: ${Formatters.formatDaysCount(days)} • Investido: ${Formatters.formatCurrency(cost)}',
           trailingLabel: Formatters.formatDaysCount(days),
           trailingColor: isCritical
               ? AppTheme.dangerRed
@@ -410,9 +422,64 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
     );
   }
 
+  void _showPendingPayoutsDrillDown(
+    List<Vehicle> allVehicles,
+    Map<String, int> deductedByVehicle,
+  ) {
+    final pendingItems = allVehicles
+        .where((v) =>
+            v.isSold &&
+            v.isConsigned &&
+            FinancialCalculator.calculateOwnerPayoutDueCentsFromMap(
+                  v,
+                  deductedByVehicle,
+                ) >
+                0)
+        .toList()
+      ..sort(
+        (a, b) => FinancialCalculator.calculateOwnerPayoutDueCentsFromMap(
+          b,
+          deductedByVehicle,
+        ).compareTo(
+          FinancialCalculator.calculateOwnerPayoutDueCentsFromMap(
+            a,
+            deductedByVehicle,
+          ),
+        ),
+      );
+
+    _showDrillDownSheet(
+      title: 'Repasses Pendentes (${pendingItems.length})',
+      subtitle: 'Consignados vendidos aguardando acerto com proprietário',
+      items: pendingItems,
+      itemBuilder: (ctx, v) {
+        final sale = v.activeSale!;
+        final netPayout = FinancialCalculator.calculateOwnerNetPayoutCentsFromMap(
+              v,
+              deductedByVehicle,
+              priceCents: sale.salePriceCents,
+            ) ??
+            0;
+        final due = FinancialCalculator.calculateOwnerPayoutDueCentsFromMap(
+          v,
+          deductedByVehicle,
+        );
+        return _buildDrillDownTile(
+          sheetContext: ctx,
+          vehicle: v,
+          subtitle:
+              '${v.consignorName != null ? "${v.consignorName} • " : ""}Repassado ${Formatters.formatCurrency(sale.totalOwnerPayoutPaidCents)} de ${Formatters.formatCurrency(netPayout)}',
+          trailingLabel: Formatters.formatCurrency(due),
+          trailingColor: AppTheme.accentBlue,
+        );
+      },
+    );
+  }
+
   void _showModelSalesDrillDown(
     ModelPerformanceStats modelStats,
     Map<String, int> expensesByVehicle,
+    Map<String, int> deductedByVehicle,
   ) {
     _showDrillDownSheet(
       title: modelStats.displayName,
@@ -421,17 +488,27 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
       items: modelStats.soldVehicles,
       itemBuilder: (ctx, v) {
         final cost = FinancialCalculator.calculateVehicleTotalCostFromMap(v, expensesByVehicle);
-        final profit = v.activeSale!.salePriceCents - cost;
-        final roi = FinancialCalculator.calculateRoiPercent(profit, cost);
+        final profit = FinancialCalculator.calculateRealizedProfitFromMap(
+              v,
+              expensesByVehicle,
+              deductedByVehicle: deductedByVehicle,
+            ) ??
+            0;
+        final pct = FinancialCalculator.calculateVehiclePercentMetric(
+          v,
+          profitCents: profit,
+          totalCostCents: cost,
+          priceCents: v.activeSale!.salePriceCents,
+        );
         final days = FinancialCalculator.calculateDaysInStock(v);
         final isLoss = profit < 0;
         return _buildDrillDownTile(
           sheetContext: ctx,
           vehicle: v,
           subtitle:
-              'Venda em ${Formatters.formatDate(v.activeSale!.saleDate)} • Giro: ${Formatters.formatDaysCount(days)}',
+              '${v.isConsigned ? "Consignado • " : ""}Venda em ${Formatters.formatDate(v.activeSale!.saleDate)} • Giro: ${Formatters.formatDaysCount(days)}',
           trailingLabel:
-              '${isLoss ? "-" : "+"}${Formatters.formatCurrency(profit.abs())}${roi != null ? " (${Formatters.formatPercent(roi)})" : ""}',
+              '${isLoss ? "-" : "+"}${Formatters.formatCurrency(profit.abs())}${pct != null ? " (${Formatters.formatPercent(pct)})" : ""}',
           trailingColor: isLoss ? AppTheme.dangerRed : AppTheme.successGreen,
         );
       },
@@ -533,6 +610,8 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
             final expenses = eSnapshot.data ?? [];
             final expensesByVehicle =
                 FinancialCalculator.aggregateValidExpensesByVehicle(expenses);
+            final deductedByVehicle =
+                FinancialCalculator.aggregateDeductedExpensesByVehicle(expenses);
 
             final summary = FinancialCalculator.calculateMonthlySummary(
               allVehicles: vehicles,
@@ -640,7 +719,11 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
               child: InkWell(
                 borderRadius: BorderRadius.circular(14),
                 onTap: summary.soldCount > 0
-                    ? () => _showSoldVehiclesDrillDown(vehicles, expensesByVehicle)
+                    ? () => _showSoldVehiclesDrillDown(
+                          vehicles,
+                          expensesByVehicle,
+                          deductedByVehicle,
+                        )
                     : null,
                 child: Container(
                   padding: const EdgeInsets.all(16),
@@ -872,7 +955,7 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                     iconColor: AppTheme.textMain,
                     title: 'No Pátio',
                     subtitle:
-                        '${summary.stockCount} ${summary.stockCount == 1 ? "carro" : "carros"} em estoque${summary.stagnantStockCount > 0 ? " • ${summary.stagnantStockCount} há +45d" : ""}',
+                        '${summary.stockCount} ${summary.stockCount == 1 ? "carro" : "carros"} em estoque${summary.consignedStockCount > 0 ? " (${summary.consignedStockCount} consignado${summary.consignedStockCount == 1 ? "" : "s"})" : ""}${summary.stagnantStockCount > 0 ? " • ${summary.stagnantStockCount} há +45d" : ""}',
                     subtitleColor: summary.stagnantStockCount > 0
                         ? AppTheme.warningOrange
                         : AppTheme.textMuted,
@@ -900,6 +983,20 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                         ? () => _showPendingReceivablesDrillDown(vehicles)
                         : null,
                   ),
+                  if (summary.toPayConsignorsTodayCents > 0 ||
+                      summary.pendingPayoutVehiclesCount > 0) ...[
+                    const Divider(height: 1, thickness: 1, color: AppTheme.borderSubtle),
+                    _buildPositionTile(
+                      icon: Icons.handshake_outlined,
+                      iconColor: AppTheme.accentBlue,
+                      title: 'A Repassar (Consignados)',
+                      subtitle:
+                          '${summary.pendingPayoutVehiclesCount} ${summary.pendingPayoutVehiclesCount == 1 ? "repasse pendente" : "repasses pendentes"}',
+                      value: Formatters.formatCurrency(summary.toPayConsignorsTodayCents),
+                      valueColor: AppTheme.accentBlue,
+                      onTap: () => _showPendingPayoutsDrillDown(vehicles, deductedByVehicle),
+                    ),
+                  ],
                   const Divider(height: 1, thickness: 1, color: AppTheme.borderSubtle),
                   const SizedBox(height: 12),
                   const Text(
@@ -1079,8 +1176,11 @@ class _MonthlySummaryScreenState extends State<MonthlySummaryScreen> {
                                         vehicles: vehicles,
                                         expenses: expenses,
                                         isDesktopLayout: isDesktopLayout,
-                                        onModelTap: (stats) =>
-                                            _showModelSalesDrillDown(stats, expensesByVehicle),
+                                        onModelTap: (stats) => _showModelSalesDrillDown(
+                                          stats,
+                                          expensesByVehicle,
+                                          deductedByVehicle,
+                                        ),
                                       ),
                                     )
                                   : isDesktopLayout

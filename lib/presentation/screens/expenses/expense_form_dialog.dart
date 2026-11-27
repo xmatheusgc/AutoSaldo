@@ -16,6 +16,7 @@ class ExpenseFormDialog extends StatefulWidget {
   final String? userEmail;
   final ExpenseRepository expenseRepository;
   final Expense? expenseToEdit;
+  final bool isConsignedVehicle;
 
   const ExpenseFormDialog({
     super.key,
@@ -25,6 +26,7 @@ class ExpenseFormDialog extends StatefulWidget {
     this.userEmail,
     required this.expenseRepository,
     this.expenseToEdit,
+    this.isConsignedVehicle = false,
   });
 
   @override
@@ -38,6 +40,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
   int _amountCents = 0;
   String _date = Formatters.todayIsoDate();
   String _category = AppConstants.expenseCategoryWorkshop;
+  bool _deductFromConsignmentPayout = false;
   bool _isSaving = false;
   String? _error;
 
@@ -54,6 +57,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
           ? e.category
           : AppConstants.expenseCategoryOther;
       _descController.text = e.description ?? '';
+      _deductFromConsignmentPayout = e.deductFromConsignmentPayout;
     }
   }
 
@@ -92,6 +96,8 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
           category: _category,
           description: description,
           status: existing.status,
+          deductFromConsignmentPayout:
+              widget.isConsignedVehicle ? _deductFromConsignmentPayout : false,
           createdAt: existing.createdAt,
           updatedAt: now,
           createdByUid: existing.createdByUid,
@@ -115,6 +121,8 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
           date: _date,
           category: _category,
           description: description,
+          deductFromConsignmentPayout:
+              widget.isConsignedVehicle ? _deductFromConsignmentPayout : false,
           createdAt: now,
           updatedAt: now,
           createdByUid: widget.userUid,
@@ -248,6 +256,38 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                         hintText: 'Ex: Troca de óleo, funilaria...',
                       ),
                     ),
+                    if (widget.isConsignedVehicle) ...[
+                      const SizedBox(height: 14),
+                      Material(
+                        color: AppTheme.sectionDivider,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(color: AppTheme.borderSubtle),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: SwitchListTile(
+                          value: _deductFromConsignmentPayout,
+                          onChanged: (val) {
+                            setState(() {
+                              _deductFromConsignmentPayout = val;
+                            });
+                          },
+                          title: const Text(
+                            'Descontar do repasse ao proprietário',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textMain,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Reduz o valor a repassar ao dono após a venda.',
+                            style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 20),
 
                     if (_error != null) ...[

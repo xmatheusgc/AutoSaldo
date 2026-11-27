@@ -51,10 +51,13 @@ class StockScreen extends StatefulWidget {
 class _StockScreenState extends State<StockScreen> {
   final _searchController = TextEditingController();
   String _filter = 'in_stock'; // 'all', 'in_stock', 'sold'
+  String _ownershipFilter = 'all'; // 'all', 'own', 'consigned'
   String _searchQuery = '';
   bool _onlyDocIssue = false;
   bool _onlyPendingPayment = false;
+  bool _onlyPendingPayout = false;
   bool _onlyStagnant = false;
+  bool _onlyReturned = false;
   _StockSort _sort = _StockSort.newest;
   late Stream<List<Vehicle>> _vehiclesStream;
   late Stream<List<Expense>> _expensesStream;
@@ -176,9 +179,12 @@ class _StockScreenState extends State<StockScreen> {
 
   int get _activeControlCount {
     int count = 0;
+    if (_ownershipFilter != 'all') count++;
     if (_onlyDocIssue) count++;
     if (_onlyPendingPayment) count++;
+    if (_onlyPendingPayout) count++;
     if (_onlyStagnant) count++;
+    if (_onlyReturned) count++;
     if (_sort != _StockSort.newest) count++;
     return count;
   }
@@ -186,6 +192,7 @@ class _StockScreenState extends State<StockScreen> {
   List<Vehicle> _sortVehicles(
     List<Vehicle> list,
     Map<String, int> expensesByVehicle,
+    Map<String, int> deductedByVehicle,
   ) {
     if (_sort == _StockSort.newest) {
       return list;
@@ -195,13 +202,23 @@ class _StockScreenState extends State<StockScreen> {
     int priceOf(Vehicle v) {
       return v.activeSale?.salePriceCents ??
           v.announcedPriceCents ??
-          v.purchasePriceCents;
+          (v.isConsigned
+              ? (FinancialCalculator.calculateOwnerBasePayoutCents(v) ?? 0)
+              : v.purchasePriceCents);
     }
 
     int profitOf(Vehicle v) {
       final p = v.isSold
-          ? FinancialCalculator.calculateRealizedProfitFromMap(v, expensesByVehicle)
-          : FinancialCalculator.calculateEstimatedProfitFromMap(v, expensesByVehicle);
+          ? FinancialCalculator.calculateRealizedProfitFromMap(
+              v,
+              expensesByVehicle,
+              deductedByVehicle: deductedByVehicle,
+            )
+          : FinancialCalculator.calculateEstimatedProfitFromMap(
+              v,
+              expensesByVehicle,
+              deductedByVehicle: deductedByVehicle,
+            );
       return p ?? -999999999;
     }
 
@@ -246,21 +263,49 @@ class _StockScreenState extends State<StockScreen> {
     });
   }
 
+  void _togglePendingPayoutFilter(bool selected) {
+    setState(() {
+      _onlyPendingPayout = selected;
+      if (selected) {
+        _filter = 'sold';
+        _onlyStagnant = false;
+        _onlyReturned = false;
+      }
+    });
+  }
+
+  void _toggleReturnedFilter(bool selected) {
+    setState(() {
+      _onlyReturned = selected;
+      if (selected) {
+        _filter = 'all';
+        _onlyPendingPayment = false;
+        _onlyPendingPayout = false;
+        _onlyStagnant = false;
+      }
+    });
+  }
+
   void _toggleStagnantFilter(bool selected) {
     setState(() {
       _onlyStagnant = selected;
       if (selected) {
         _filter = 'in_stock';
         _onlyPendingPayment = false;
+        _onlyPendingPayout = false;
+        _onlyReturned = false;
       }
     });
   }
 
   void _clearAllControls() {
     setState(() {
+      _ownershipFilter = 'all';
       _onlyDocIssue = false;
       _onlyPendingPayment = false;
+      _onlyPendingPayout = false;
       _onlyStagnant = false;
+      _onlyReturned = false;
       _sort = _StockSort.newest;
     });
   }
@@ -268,7 +313,10 @@ class _StockScreenState extends State<StockScreen> {
   void _showFilterSortSheet({
     required int docIssueCount,
     required int pendingPaymentCount,
+    required int pendingPayoutCount,
     required int stagnantCount,
+    required int returnedCount,
+    required int consignedCount,
     required List<Vehicle> allVehicles,
   }) {
     showAdaptiveModalSheet(
@@ -280,8 +328,12 @@ class _StockScreenState extends State<StockScreen> {
                 _onlyDocIssue ||
                 pendingPaymentCount > 0 ||
                 _onlyPendingPayment ||
+                pendingPayoutCount > 0 ||
+                _onlyPendingPayout ||
                 stagnantCount > 0 ||
-                _onlyStagnant;
+                _onlyStagnant ||
+                returnedCount > 0 ||
+                _onlyReturned;
 
             return AdaptiveModalContainer(
               child: Column(
@@ -367,6 +419,56 @@ class _StockScreenState extends State<StockScreen> {
                       );
                     }).toList(),
                   ),
+                  if (consignedCount > 0 || _ownershipFilter != 'all') ...[
+                    const SizedBox(height: 18),
+                    const Text(
+                      'Origem',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final entry in const {
+                          'all': 'Todos',
+                          'own': 'Próprios',
+                          'consigned': 'Consignados',
+                        }.entries)
+                          ChoiceChip(
+                            label: Text(
+                              entry.value,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: _ownershipFilter == entry.key
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: _ownershipFilter == entry.key
+                                    ? Colors.white
+                                    : AppTheme.textMain,
+                              ),
+                            ),
+                            selected: _ownershipFilter == entry.key,
+                            selectedColor: AppTheme.primaryDark,
+                            backgroundColor: Colors.white,
+                            checkmarkColor: Colors.white,
+                            side: BorderSide(
+                              color: _ownershipFilter == entry.key
+                                  ? AppTheme.primaryDark
+                                  : AppTheme.borderInteractive,
+                            ),
+                            onSelected: (_) {
+                              setState(() => _ownershipFilter = entry.key);
+                              setModalState(() {});
+                            },
+                          ),
+                      ],
+                    ),
+                  ],
                   if (hasAnyQuickFilter) ...[
                     const SizedBox(height: 18),
                     const Text(
@@ -426,6 +528,28 @@ class _StockScreenState extends State<StockScreen> {
                               setModalState(() {});
                             },
                           ),
+                        if (pendingPayoutCount > 0 || _onlyPendingPayout)
+                          FilterChip(
+                            selected: _onlyPendingPayout,
+                            label: Text(
+                              'Falta repassar ($pendingPayoutCount)',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            selectedColor: AppTheme.accentSoft,
+                            checkmarkColor: AppTheme.accentBlue,
+                            side: BorderSide(
+                              color: _onlyPendingPayout
+                                  ? const Color(0xFFBFDBFE)
+                                  : AppTheme.borderInteractive,
+                            ),
+                            onSelected: (selected) {
+                              _togglePendingPayoutFilter(selected);
+                              setModalState(() {});
+                            },
+                          ),
                         if (stagnantCount > 0 || _onlyStagnant)
                           FilterChip(
                             selected: _onlyStagnant,
@@ -445,6 +569,28 @@ class _StockScreenState extends State<StockScreen> {
                             ),
                             onSelected: (selected) {
                               _toggleStagnantFilter(selected);
+                              setModalState(() {});
+                            },
+                          ),
+                        if (returnedCount > 0 || _onlyReturned)
+                          FilterChip(
+                            selected: _onlyReturned,
+                            label: Text(
+                              'Devolvidos ($returnedCount)',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            selectedColor: AppTheme.sectionDivider,
+                            checkmarkColor: AppTheme.textMain,
+                            side: BorderSide(
+                              color: _onlyReturned
+                                  ? AppTheme.primaryDark
+                                  : AppTheme.borderInteractive,
+                            ),
+                            onSelected: (selected) {
+                              _toggleReturnedFilter(selected);
                               setModalState(() {});
                             },
                           ),
@@ -526,7 +672,10 @@ class _StockScreenState extends State<StockScreen> {
     required bool compact,
     required int docIssueCount,
     required int pendingPaymentCount,
+    required int pendingPayoutCount,
     required int stagnantCount,
+    required int returnedCount,
+    required int consignedCount,
     required List<Vehicle> allVehicles,
   }) {
     final activeCount = _activeControlCount;
@@ -545,7 +694,10 @@ class _StockScreenState extends State<StockScreen> {
             onTap: () => _showFilterSortSheet(
               docIssueCount: docIssueCount,
               pendingPaymentCount: pendingPaymentCount,
+              pendingPayoutCount: pendingPayoutCount,
               stagnantCount: stagnantCount,
+              returnedCount: returnedCount,
+              consignedCount: consignedCount,
               allVehicles: allVehicles,
             ),
             child: Container(
@@ -606,7 +758,9 @@ class _StockScreenState extends State<StockScreen> {
   Widget _buildActiveFiltersStrip({
     required int docIssueCount,
     required int pendingPaymentCount,
+    required int pendingPayoutCount,
     required int stagnantCount,
+    required int returnedCount,
     required EdgeInsetsGeometry padding,
   }) {
     return Container(
@@ -623,6 +777,15 @@ class _StockScreenState extends State<StockScreen> {
                 color: AppTheme.textMain,
                 bgColor: AppTheme.sectionDivider,
                 onRemove: () => setState(() => _sort = _StockSort.newest),
+              ),
+              const SizedBox(width: 6),
+            ],
+            if (_ownershipFilter != 'all') ...[
+              _buildRemovablePill(
+                label: _ownershipFilter == 'consigned' ? 'Consignados' : 'Próprios',
+                color: const Color(0xFF3730A3),
+                bgColor: const Color(0xFFEEF2FF),
+                onRemove: () => setState(() => _ownershipFilter = 'all'),
               ),
               const SizedBox(width: 6),
             ],
@@ -644,12 +807,30 @@ class _StockScreenState extends State<StockScreen> {
               ),
               const SizedBox(width: 6),
             ],
-            if (_onlyStagnant)
+            if (_onlyPendingPayout) ...[
+              _buildRemovablePill(
+                label: 'Falta repassar ($pendingPayoutCount)',
+                color: AppTheme.accentBlue,
+                bgColor: AppTheme.accentSoft,
+                onRemove: () => setState(() => _onlyPendingPayout = false),
+              ),
+              const SizedBox(width: 6),
+            ],
+            if (_onlyStagnant) ...[
               _buildRemovablePill(
                 label: '+45d pátio ($stagnantCount)',
                 color: AppTheme.dangerRed,
                 bgColor: AppTheme.dangerLight,
                 onRemove: () => setState(() => _onlyStagnant = false),
+              ),
+              const SizedBox(width: 6),
+            ],
+            if (_onlyReturned)
+              _buildRemovablePill(
+                label: 'Devolvidos ($returnedCount)',
+                color: AppTheme.textMain,
+                bgColor: AppTheme.sectionDivider,
+                onRemove: () => setState(() => _onlyReturned = false),
               ),
           ],
         ),
@@ -710,14 +891,28 @@ class _StockScreenState extends State<StockScreen> {
             final allExpenses = eSnapshot.data ?? [];
             final expensesByVehicle =
                 FinancialCalculator.aggregateValidExpensesByVehicle(allExpenses);
+            final deductedByVehicle =
+                FinancialCalculator.aggregateDeductedExpensesByVehicle(allExpenses);
 
             final inStockCount = allVehicles.where((v) => v.isInStock).length;
             final soldCount = allVehicles.where((v) => v.isSold).length;
+            final consignedCount = allVehicles.where((v) => v.isConsigned).length;
+            final returnedCount = allVehicles.where((v) => v.isReturned).length;
             final docIssueCount = allVehicles
                 .where((v) => v.docStatus == AppConstants.docStatusWithIssue)
                 .length;
             final pendingPaymentCount = allVehicles
                 .where((v) => v.isSold && (v.activeSale?.balanceDueCents ?? 0) > 0)
+                .length;
+            final pendingPayoutCount = allVehicles
+                .where((v) =>
+                    v.isSold &&
+                    v.isConsigned &&
+                    FinancialCalculator.calculateOwnerPayoutDueCentsFromMap(
+                          v,
+                          deductedByVehicle,
+                        ) >
+                        0)
                 .length;
             final stagnantCount = allVehicles.where((v) {
               if (!v.isInStock) return false;
@@ -733,6 +928,13 @@ class _StockScreenState extends State<StockScreen> {
               filtered = filtered.where((v) => v.isSold).toList();
             }
 
+            // Filtro de origem
+            if (_ownershipFilter == 'own') {
+              filtered = filtered.where((v) => v.isOwn).toList();
+            } else if (_ownershipFilter == 'consigned') {
+              filtered = filtered.where((v) => v.isConsigned).toList();
+            }
+
             // Filtros rápidos
             if (_onlyDocIssue) {
               filtered = filtered
@@ -744,6 +946,18 @@ class _StockScreenState extends State<StockScreen> {
                   .where((v) => v.isSold && (v.activeSale?.balanceDueCents ?? 0) > 0)
                   .toList();
             }
+            if (_onlyPendingPayout) {
+              filtered = filtered
+                  .where((v) =>
+                      v.isSold &&
+                      v.isConsigned &&
+                      FinancialCalculator.calculateOwnerPayoutDueCentsFromMap(
+                            v,
+                            deductedByVehicle,
+                          ) >
+                          0)
+                  .toList();
+            }
             if (_onlyStagnant) {
               filtered = filtered.where((v) {
                 if (!v.isInStock) return false;
@@ -751,8 +965,11 @@ class _StockScreenState extends State<StockScreen> {
                     AppConstants.stagnantStockDaysThreshold;
               }).toList();
             }
+            if (_onlyReturned) {
+              filtered = filtered.where((v) => v.isReturned).toList();
+            }
 
-            // Filtro de busca (placa, marca, modelo, renavam)
+            // Filtro de busca (placa, marca, modelo, renavam, proprietário)
             if (_searchQuery.isNotEmpty) {
               final q = _searchQuery.toLowerCase().trim();
               final qPlate = Formatters.normalizePlate(q);
@@ -761,24 +978,34 @@ class _StockScreenState extends State<StockScreen> {
                 final matchModel = v.model.toLowerCase().contains(q);
                 final matchPlate = v.plate.contains(qPlate);
                 final matchRenavam = v.renavam != null && v.renavam!.contains(q);
-                return matchBrand || matchModel || matchPlate || matchRenavam;
+                final matchConsignor =
+                    v.consignorName != null && v.consignorName!.toLowerCase().contains(q);
+                return matchBrand ||
+                    matchModel ||
+                    matchPlate ||
+                    matchRenavam ||
+                    matchConsignor;
               }).toList();
             }
 
-            filtered = _sortVehicles(filtered, expensesByVehicle);
+            filtered = _sortVehicles(filtered, expensesByVehicle, deductedByVehicle);
 
             if (isWide) {
               return _buildDesktopLayout(
                 allVehicles: allVehicles,
                 filtered: filtered,
                 expensesByVehicle: expensesByVehicle,
+                deductedByVehicle: deductedByVehicle,
                 hasStreamError: hasStreamError,
                 isWaitingInitial: isWaitingInitial,
                 inStockCount: inStockCount,
                 soldCount: soldCount,
                 docIssueCount: docIssueCount,
                 pendingPaymentCount: pendingPaymentCount,
+                pendingPayoutCount: pendingPayoutCount,
                 stagnantCount: stagnantCount,
+                returnedCount: returnedCount,
+                consignedCount: consignedCount,
               );
             }
 
@@ -786,13 +1013,17 @@ class _StockScreenState extends State<StockScreen> {
               allVehicles: allVehicles,
               filtered: filtered,
               expensesByVehicle: expensesByVehicle,
+              deductedByVehicle: deductedByVehicle,
               hasStreamError: hasStreamError,
               isWaitingInitial: isWaitingInitial,
               inStockCount: inStockCount,
               soldCount: soldCount,
               docIssueCount: docIssueCount,
               pendingPaymentCount: pendingPaymentCount,
+              pendingPayoutCount: pendingPayoutCount,
               stagnantCount: stagnantCount,
+              returnedCount: returnedCount,
+              consignedCount: consignedCount,
             );
           },
         );
@@ -804,13 +1035,17 @@ class _StockScreenState extends State<StockScreen> {
     required List<Vehicle> allVehicles,
     required List<Vehicle> filtered,
     required Map<String, int> expensesByVehicle,
+    required Map<String, int> deductedByVehicle,
     required bool hasStreamError,
     required bool isWaitingInitial,
     required int inStockCount,
     required int soldCount,
     required int docIssueCount,
     required int pendingPaymentCount,
+    required int pendingPayoutCount,
     required int stagnantCount,
+    required int returnedCount,
+    required int consignedCount,
   }) {
     final hasActiveStrip = _activeControlCount > 0;
     final pinnedHeight = hasActiveStrip ? 82.0 : 42.0;
@@ -861,7 +1096,10 @@ class _StockScreenState extends State<StockScreen> {
                           compact: true,
                           docIssueCount: docIssueCount,
                           pendingPaymentCount: pendingPaymentCount,
+                          pendingPayoutCount: pendingPayoutCount,
                           stagnantCount: stagnantCount,
+                          returnedCount: returnedCount,
+                          consignedCount: consignedCount,
                           allVehicles: allVehicles,
                         ),
                       ],
@@ -887,7 +1125,9 @@ class _StockScreenState extends State<StockScreen> {
                       _buildActiveFiltersStrip(
                         docIssueCount: docIssueCount,
                         pendingPaymentCount: pendingPaymentCount,
+                        pendingPayoutCount: pendingPayoutCount,
                         stagnantCount: stagnantCount,
+                        returnedCount: returnedCount,
                         padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                       ),
                       const Divider(height: 1, thickness: 1, color: AppTheme.borderSubtle),
@@ -927,6 +1167,7 @@ class _StockScreenState extends State<StockScreen> {
                   return _buildMobileVehicleRow(
                     vehicle: vehicle,
                     expensesByVehicle: expensesByVehicle,
+                    deductedByVehicle: deductedByVehicle,
                   );
                 },
               ),
@@ -942,13 +1183,17 @@ class _StockScreenState extends State<StockScreen> {
     required List<Vehicle> allVehicles,
     required List<Vehicle> filtered,
     required Map<String, int> expensesByVehicle,
+    required Map<String, int> deductedByVehicle,
     required bool hasStreamError,
     required bool isWaitingInitial,
     required int inStockCount,
     required int soldCount,
     required int docIssueCount,
     required int pendingPaymentCount,
+    required int pendingPayoutCount,
     required int stagnantCount,
+    required int returnedCount,
+    required int consignedCount,
   }) {
     final hasActiveStrip = _activeControlCount > 0;
 
@@ -993,7 +1238,10 @@ class _StockScreenState extends State<StockScreen> {
                               compact: false,
                               docIssueCount: docIssueCount,
                               pendingPaymentCount: pendingPaymentCount,
+                              pendingPayoutCount: pendingPayoutCount,
                               stagnantCount: stagnantCount,
+                              returnedCount: returnedCount,
+                              consignedCount: consignedCount,
                               allVehicles: allVehicles,
                             ),
                             const SizedBox(width: 10),
@@ -1029,7 +1277,9 @@ class _StockScreenState extends State<StockScreen> {
                         _buildActiveFiltersStrip(
                           docIssueCount: docIssueCount,
                           pendingPaymentCount: pendingPaymentCount,
+                          pendingPayoutCount: pendingPayoutCount,
                           stagnantCount: stagnantCount,
+                          returnedCount: returnedCount,
                           padding: const EdgeInsets.only(top: 6, bottom: 10),
                         ),
                     ],
@@ -1045,7 +1295,11 @@ class _StockScreenState extends State<StockScreen> {
                     ? const Center(child: CircularProgressIndicator())
                     : filtered.isEmpty
                         ? _buildEmptyState()
-                        : _buildDesktopTable(filtered, expensesByVehicle),
+                        : _buildDesktopTable(
+                            filtered,
+                            expensesByVehicle,
+                            deductedByVehicle,
+                          ),
           ),
         ],
       ),
@@ -1055,6 +1309,7 @@ class _StockScreenState extends State<StockScreen> {
   Widget _buildDesktopTable(
     List<Vehicle> filtered,
     Map<String, int> expensesByVehicle,
+    Map<String, int> deductedByVehicle,
   ) {
     return Center(
       child: ConstrainedBox(
@@ -1130,6 +1385,7 @@ class _StockScreenState extends State<StockScreen> {
                           return _buildDesktopTableRow(
                             vehicle: vehicle,
                             expensesByVehicle: expensesByVehicle,
+                            deductedByVehicle: deductedByVehicle,
                             showCostCol: showCostCol,
                           );
                         },
@@ -1148,6 +1404,7 @@ class _StockScreenState extends State<StockScreen> {
   Widget _buildDesktopTableRow({
     required Vehicle vehicle,
     required Map<String, int> expensesByVehicle,
+    required Map<String, int> deductedByVehicle,
     required bool showCostCol,
   }) {
     final totalCost = FinancialCalculator.calculateVehicleTotalCostFromMap(
@@ -1157,26 +1414,40 @@ class _StockScreenState extends State<StockScreen> {
     final estimatedProfit = FinancialCalculator.calculateEstimatedProfitFromMap(
       vehicle,
       expensesByVehicle,
+      deductedByVehicle: deductedByVehicle,
     );
     final realizedProfit = FinancialCalculator.calculateRealizedProfitFromMap(
       vehicle,
       expensesByVehicle,
+      deductedByVehicle: deductedByVehicle,
     );
     final daysInStock = FinancialCalculator.calculateDaysInStock(vehicle);
     final profit = vehicle.isSold ? realizedProfit : estimatedProfit;
-    final roiPercent = profit != null
-        ? FinancialCalculator.calculateRoiPercent(profit, totalCost)
-        : null;
-
     final int? displayPriceCents = vehicle.isSold
         ? vehicle.activeSale?.salePriceCents
         : vehicle.announcedPriceCents;
+    final roiPercent = profit != null
+        ? FinancialCalculator.calculateVehiclePercentMetric(
+            vehicle,
+            profitCents: profit,
+            totalCostCents: totalCost,
+            priceCents: displayPriceCents,
+          )
+        : null;
+    final int? netPayoutCents = vehicle.isConsigned
+        ? FinancialCalculator.calculateOwnerNetPayoutCentsFromMap(
+            vehicle,
+            deductedByVehicle,
+            priceCents: displayPriceCents,
+          )
+        : null;
 
     final alerts = _collectAlerts(
       vehicle: vehicle,
       daysInStock: daysInStock,
       estimatedProfit: estimatedProfit,
       totalCost: totalCost,
+      deductedByVehicle: deductedByVehicle,
     );
 
     final author = _shortAuthor(vehicle.createdByEmail);
@@ -1241,9 +1512,16 @@ class _StockScreenState extends State<StockScreen> {
                               ),
                             ),
                           ),
+                          if (vehicle.isConsigned) ...[
+                            const SizedBox(width: 8),
+                            const _MicroStatusText('Consignado', Color(0xFF3730A3)),
+                          ],
                           if (_filter == 'all' && vehicle.isSold) ...[
                             const SizedBox(width: 8),
                             const _MicroStatusText('Vendido', AppTheme.successGreen),
+                          ] else if (_filter == 'all' && vehicle.isReturned) ...[
+                            const SizedBox(width: 8),
+                            const _MicroStatusText('Devolvido', AppTheme.textMuted),
                           ],
                         ],
                       ),
@@ -1263,7 +1541,13 @@ class _StockScreenState extends State<StockScreen> {
                             ),
                           if (!showCostCol)
                             Text(
-                              'Custo ${Formatters.formatCurrency(totalCost)}',
+                              vehicle.isConsigned
+                                  ? (netPayoutCents != null
+                                      ? 'Repasse ${Formatters.formatCurrency(netPayoutCents)}'
+                                      : (totalCost > 0
+                                          ? 'Despesas ${Formatters.formatCurrency(totalCost)}'
+                                          : vehicle.consignmentTypeLabel))
+                                  : 'Custo ${Formatters.formatCurrency(totalCost)}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: AppTheme.textMuted,
@@ -1307,7 +1591,11 @@ class _StockScreenState extends State<StockScreen> {
                   SizedBox(
                     width: 110,
                     child: Text(
-                      Formatters.formatCurrency(totalCost),
+                      vehicle.isConsigned
+                          ? (netPayoutCents != null
+                              ? Formatters.formatCurrency(netPayoutCents)
+                              : vehicle.consignmentTypeLabel)
+                          : Formatters.formatCurrency(totalCost),
                       textAlign: TextAlign.right,
                       style: const TextStyle(
                         fontSize: 13.5,
@@ -1398,6 +1686,7 @@ class _StockScreenState extends State<StockScreen> {
   Widget _buildMobileVehicleRow({
     required Vehicle vehicle,
     required Map<String, int> expensesByVehicle,
+    required Map<String, int> deductedByVehicle,
   }) {
     final totalCost = FinancialCalculator.calculateVehicleTotalCostFromMap(
       vehicle,
@@ -1406,27 +1695,41 @@ class _StockScreenState extends State<StockScreen> {
     final estimatedProfit = FinancialCalculator.calculateEstimatedProfitFromMap(
       vehicle,
       expensesByVehicle,
+      deductedByVehicle: deductedByVehicle,
     );
     final realizedProfit = FinancialCalculator.calculateRealizedProfitFromMap(
       vehicle,
       expensesByVehicle,
+      deductedByVehicle: deductedByVehicle,
     );
     final daysInStock = FinancialCalculator.calculateDaysInStock(vehicle);
 
     final int? profit = vehicle.isSold ? realizedProfit : estimatedProfit;
-    final double? roiPercent = profit != null
-        ? FinancialCalculator.calculateRoiPercent(profit, totalCost)
-        : null;
-
     final int? displayPriceCents = vehicle.isSold
         ? vehicle.activeSale?.salePriceCents
         : vehicle.announcedPriceCents;
+    final double? roiPercent = profit != null
+        ? FinancialCalculator.calculateVehiclePercentMetric(
+            vehicle,
+            profitCents: profit,
+            totalCostCents: totalCost,
+            priceCents: displayPriceCents,
+          )
+        : null;
+    final int? netPayoutCents = vehicle.isConsigned
+        ? FinancialCalculator.calculateOwnerNetPayoutCentsFromMap(
+            vehicle,
+            deductedByVehicle,
+            priceCents: displayPriceCents,
+          )
+        : null;
 
     final alerts = _collectAlerts(
       vehicle: vehicle,
       daysInStock: daysInStock,
       estimatedProfit: estimatedProfit,
       totalCost: totalCost,
+      deductedByVehicle: deductedByVehicle,
     );
 
     final metaParts = <String>[
@@ -1434,9 +1737,18 @@ class _StockScreenState extends State<StockScreen> {
         '${vehicle.manufactureYear ?? "-"}/${vehicle.modelYear ?? "-"}',
       if (vehicle.isInStock)
         daysInStock == 0 ? 'Entrada hoje' : '${daysInStock}d pátio'
+      else if (vehicle.isReturned)
+        'Devolvido (${Formatters.formatDaysCount(daysInStock)})'
       else
         'Vendido ${Formatters.formatDaysCount(daysInStock)}',
-      'Custo ${Formatters.formatCurrency(totalCost)}',
+      if (vehicle.isConsigned)
+        (netPayoutCents != null
+            ? 'Repasse ${Formatters.formatCurrency(netPayoutCents)}'
+            : (totalCost > 0
+                ? 'Despesas ${Formatters.formatCurrency(totalCost)}'
+                : vehicle.consignmentTypeLabel))
+      else
+        'Custo ${Formatters.formatCurrency(totalCost)}',
       if (_shortAuthor(vehicle.createdByEmail) != null)
         _shortAuthor(vehicle.createdByEmail)!,
     ];
@@ -1454,19 +1766,30 @@ class _StockScreenState extends State<StockScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Linha A: Placa (+ status apenas se tab Todos) | Preço principal
+              // Linha A: Placa (+ origem / status) | Preço principal
               Row(
                 children: [
-                  CarPlateWidget(
-                    plate: vehicle.plate,
-                    fontSize: 11.5,
-                    compact: true,
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        CarPlateWidget(
+                          plate: vehicle.plate,
+                          fontSize: 11.5,
+                          compact: true,
+                        ),
+                        if (vehicle.isConsigned)
+                          const _MicroStatusText('Consignado', Color(0xFF3730A3)),
+                        if (_filter == 'all' && vehicle.isSold)
+                          const _MicroStatusText('Vendido', AppTheme.successGreen)
+                        else if (_filter == 'all' && vehicle.isReturned)
+                          const _MicroStatusText('Devolvido', AppTheme.textMuted),
+                      ],
+                    ),
                   ),
-                  if (_filter == 'all' && vehicle.isSold) ...[
-                    const SizedBox(width: 8),
-                    const _MicroStatusText('Vendido', AppTheme.successGreen),
-                  ],
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   Text(
                     displayPriceCents != null
                         ? Formatters.formatCurrency(displayPriceCents)
@@ -1545,13 +1868,15 @@ class _StockScreenState extends State<StockScreen> {
     required int daysInStock,
     required int? estimatedProfit,
     required int totalCost,
+    required Map<String, int> deductedByVehicle,
   }) {
     final alerts = <_VehicleAlert>[];
 
     if (vehicle.isInStock && estimatedProfit != null) {
       if (estimatedProfit < 0) {
         alerts.add(const _VehicleAlert('Prejuízo previsto', AppTheme.dangerRed));
-      } else if (FinancialCalculator.isTightMargin(estimatedProfit, totalCost)) {
+      } else if (FinancialCalculator.isTightMarginForVehicle(
+          vehicle, estimatedProfit, totalCost)) {
         alerts.add(const _VehicleAlert('Margem < 5%', AppTheme.warningOrange));
       }
     }
@@ -1563,6 +1888,21 @@ class _StockScreenState extends State<StockScreen> {
           AppTheme.warningOrange,
         ),
       );
+    }
+
+    if (vehicle.isSold && vehicle.isConsigned) {
+      final payoutDue = FinancialCalculator.calculateOwnerPayoutDueCentsFromMap(
+        vehicle,
+        deductedByVehicle,
+      );
+      if (payoutDue > 0) {
+        alerts.add(
+          _VehicleAlert(
+            'Falta repassar ${Formatters.formatCurrency(payoutDue)}',
+            AppTheme.accentBlue,
+          ),
+        );
+      }
     }
 
     if (vehicle.docStatus == AppConstants.docStatusWithIssue) {
@@ -1650,9 +1990,12 @@ class _StockScreenState extends State<StockScreen> {
                   setState(() {
                     _searchController.clear();
                     _searchQuery = '';
+                    _ownershipFilter = 'all';
                     _onlyDocIssue = false;
                     _onlyPendingPayment = false;
+                    _onlyPendingPayout = false;
                     _onlyStagnant = false;
+                    _onlyReturned = false;
                     _sort = _StockSort.newest;
                   });
                 },

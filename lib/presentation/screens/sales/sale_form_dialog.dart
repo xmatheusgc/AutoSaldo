@@ -19,6 +19,7 @@ class SaleFormDialog extends StatefulWidget {
   final String workspaceId;
   final Vehicle vehicle;
   final int totalCostCents;
+  final int deductedExpensesCents;
   final String userUid;
   final String? userEmail;
   final VehicleRepository vehicleRepository;
@@ -28,6 +29,7 @@ class SaleFormDialog extends StatefulWidget {
     required this.workspaceId,
     required this.vehicle,
     required this.totalCostCents,
+    this.deductedExpensesCents = 0,
     required this.userUid,
     this.userEmail,
     required this.vehicleRepository,
@@ -77,7 +79,9 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
 
     if (!Validators.isValidSaleDate(widget.vehicle.purchaseDate, _saleDate)) {
       setState(() {
-        _error = 'A data da venda deve ser igual ou posterior à data da compra (${Formatters.formatDate(widget.vehicle.purchaseDate)}) e não pode ser futura.';
+        _error = widget.vehicle.isConsigned
+            ? 'A data da venda deve ser igual ou posterior à entrada no pátio (${Formatters.formatDate(widget.vehicle.purchaseDate)}) e não pode ser futura.'
+            : 'A data da venda deve ser igual ou posterior à data da compra (${Formatters.formatDate(widget.vehicle.purchaseDate)}) e não pode ser futura.';
       });
       return;
     }
@@ -101,8 +105,14 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
     final buyerPhoneDigits = Formatters.digitsOnly(_buyerPhoneController.text);
     final buyerDocDigits = Formatters.digitsOnly(_buyerDocumentController.text);
 
-    final profit = _salePriceCents - widget.totalCostCents;
-    final roiPercent = FinancialCalculator.calculateRoiPercent(profit, widget.totalCostCents);
+    final netPayoutCents = _calculateNetPayoutCents(_salePriceCents);
+    final profit = _calculateProfitCents(_salePriceCents, netPayoutCents);
+    final percentMetric = FinancialCalculator.calculateVehiclePercentMetric(
+      widget.vehicle,
+      profitCents: profit,
+      totalCostCents: widget.totalCostCents,
+      priceCents: _salePriceCents,
+    );
     final isLoss = profit < 0;
 
     final confirmed = await showDialog<bool>(
@@ -122,12 +132,23 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
               _summaryRow('Telefone:', Formatters.formatPhone(buyerPhoneDigits)),
             if (buyerDocDigits.isNotEmpty)
               _summaryRow('CPF / CNPJ:', Formatters.formatCpfCnpj(buyerDocDigits)),
-            _summaryRow('Custo total:', Formatters.formatCurrency(widget.totalCostCents)),
+            if (widget.vehicle.isConsigned) ...[
+              _summaryRow(
+                'Repasse ao proprietário:',
+                Formatters.formatCurrency(netPayoutCents),
+              ),
+              if (widget.totalCostCents > 0)
+                _summaryRow(
+                  'Despesas registradas:',
+                  Formatters.formatCurrency(widget.totalCostCents),
+                ),
+            ] else
+              _summaryRow('Custo total:', Formatters.formatCurrency(widget.totalCostCents)),
             _summaryRow('Valor negociado:', Formatters.formatCurrency(_salePriceCents), bold: true),
             const Divider(height: 18),
             _summaryRow(
-              isLoss ? 'Prejuízo:' : 'Lucro:',
-              '${Formatters.formatCurrency(profit.abs())}${roiPercent != null ? " (${Formatters.formatPercent(roiPercent)})" : ""}',
+              isLoss ? 'Prejuízo:' : (widget.vehicle.isConsigned ? 'Lucro da loja:' : 'Lucro:'),
+              '${Formatters.formatCurrency(profit.abs())}${percentMetric != null ? " (${Formatters.formatPercent(percentMetric)})" : ""}',
               valueColor: isLoss ? AppTheme.dangerRed : AppTheme.successGreen,
               bold: true,
             ),
@@ -341,11 +362,38 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
     );
   }
 
+  int _calculateNetPayoutCents(int salePriceCents) {
+    if (!widget.vehicle.isConsigned) return 0;
+    final base = FinancialCalculator.calculateOwnerBasePayoutCents(
+          widget.vehicle,
+          priceCents: salePriceCents,
+        ) ??
+        0;
+    final net = base - widget.deductedExpensesCents;
+    return net > 0 ? net : 0;
+  }
+
+  int _calculateProfitCents(int salePriceCents, int netPayoutCents) {
+    if (!widget.vehicle.isConsigned) {
+      return salePriceCents - widget.totalCostCents;
+    }
+    return salePriceCents - netPayoutCents - widget.totalCostCents;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final profit = _salePriceCents > 0 ? _salePriceCents - widget.totalCostCents : 0;
-    final roiPercent = _salePriceCents > 0
-        ? FinancialCalculator.calculateRoiPercent(profit, widget.totalCostCents)
+    final netPayoutCents =
+        _salePriceCents > 0 ? _calculateNetPayoutCents(_salePriceCents) : 0;
+    final profit = _salePriceCents > 0
+        ? _calculateProfitCents(_salePriceCents, netPayoutCents)
+        : 0;
+    final percentMetric = _salePriceCents > 0
+        ? FinancialCalculator.calculateVehiclePercentMetric(
+            widget.vehicle,
+            profitCents: profit,
+            totalCostCents: widget.totalCostCents,
+            priceCents: _salePriceCents,
+          )
         : null;
     final isLoss = profit < 0;
 
@@ -436,7 +484,7 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Indicador de lucro ou prejuízo com ROI %
+                    // Indicador de lucro ou prejuízo (com repasse se consignado)
                     if (_salePriceCents > 0) ...[
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -447,33 +495,67 @@ class _SaleFormDialogState extends State<SaleFormDialog> {
                             color: isLoss ? AppTheme.dangerBorder : AppTheme.successBorder,
                           ),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Expanded(
-                              child: Text(
-                                isLoss ? 'Prejuízo na venda:' : 'Lucro na venda:',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: isLoss ? AppTheme.dangerRed : AppTheme.successGreen,
-                                ),
+                            if (widget.vehicle.isConsigned) ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Repasse ao proprietário:',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textMuted,
+                                    ),
+                                  ),
+                                  Text(
+                                    Formatters.formatCurrency(netPayoutCents),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.textMain,
+                                      fontFeatures: AppTheme.tabularNumbers,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  '${isLoss ? "-" : "+"}${Formatters.formatCurrency(profit.abs())}${roiPercent != null ? " (${Formatters.formatPercent(roiPercent)})" : ""}',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w900,
-                                    color: isLoss ? AppTheme.dangerRed : AppTheme.successGreen,
-                                    fontFeatures: AppTheme.tabularNumbers,
+                              const SizedBox(height: 4),
+                            ],
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    isLoss
+                                        ? 'Prejuízo na venda:'
+                                        : (widget.vehicle.isConsigned
+                                            ? 'Lucro da loja:'
+                                            : 'Lucro na venda:'),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: isLoss ? AppTheme.dangerRed : AppTheme.successGreen,
+                                    ),
                                   ),
                                 ),
-                              ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      '${isLoss ? "-" : "+"}${Formatters.formatCurrency(profit.abs())}${percentMetric != null ? " (${Formatters.formatPercent(percentMetric)})" : ""}',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w900,
+                                        color: isLoss ? AppTheme.dangerRed : AppTheme.successGreen,
+                                        fontFeatures: AppTheme.tabularNumbers,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),

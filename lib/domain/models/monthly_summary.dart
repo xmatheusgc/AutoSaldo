@@ -16,6 +16,9 @@ class MonthlySummary {
   final int stagnantStockCount;
   final Map<String, int> monthExpensesByCategory;
   final int pendingReceiveVehiclesCount;
+  final int consignedStockCount;
+  final int toPayConsignorsTodayCents;
+  final int pendingPayoutVehiclesCount;
 
   MonthlySummary({
     required this.year,
@@ -35,6 +38,9 @@ class MonthlySummary {
     this.stagnantStockCount = 0,
     this.monthExpensesByCategory = const {},
     this.pendingReceiveVehiclesCount = 0,
+    this.consignedStockCount = 0,
+    this.toPayConsignorsTodayCents = 0,
+    this.pendingPayoutVehiclesCount = 0,
   });
 }
 
