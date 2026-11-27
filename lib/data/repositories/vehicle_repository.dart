@@ -620,5 +620,44 @@ class VehicleRepository {
       });
     });
   }
+
+  /// Exclui permanentemente um veículo sem venda ativa e todas as suas despesas em lote atômico.
+  Future<void> deleteVehicleWithExpenses({
+    required String workspaceId,
+    required String vehicleId,
+  }) async {
+    final vehicleRef = _vehiclesCol(workspaceId).doc(vehicleId);
+    final vehicleSnap = await vehicleRef.get();
+    if (!vehicleSnap.exists || vehicleSnap.data() == null) {
+      throw Exception('Veículo não encontrado.');
+    }
+
+    final vehicle = Vehicle.fromMap(vehicleSnap.id, vehicleSnap.data()!);
+    if (vehicle.isSold) {
+      throw Exception(
+        'Não é possível excluir um veículo com venda ativa. Cancele a venda primeiro.',
+      );
+    }
+
+    final expensesCol = _firestore
+        .collection('workspaces')
+        .doc(workspaceId)
+        .collection('expenses');
+    final expensesSnap =
+        await expensesCol.where('vehicleId', isEqualTo: vehicleId).get();
+
+    if (expensesSnap.docs.length >= 500) {
+      throw Exception(
+        'Este veículo possui muitas despesas para exclusão em lote único. Estorne ou remova em partes.',
+      );
+    }
+
+    final batch = _firestore.batch();
+    for (final expDoc in expensesSnap.docs) {
+      batch.delete(expDoc.reference);
+    }
+    batch.delete(vehicleRef);
+    await batch.commit();
+  }
 }
 

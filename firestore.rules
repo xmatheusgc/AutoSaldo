@@ -128,7 +128,8 @@ service cloud.firestore {
           isValidVehicle(request.resource.data) &&
           request.resource.data.createdByUid == resource.data.createdByUid &&
           request.resource.data.updatedByUid == request.auth.uid;
-        allow delete: if false;
+        allow delete: if isMember(workspaceId) &&
+          (!('activeSale' in resource.data) || resource.data.activeSale == null);
       }
 
       // Despesas
@@ -142,7 +143,8 @@ service cloud.firestore {
           isValidExpense(request.resource.data, workspaceId) &&
           request.resource.data.createdByUid == resource.data.createdByUid &&
           request.resource.data.updatedByUid == request.auth.uid;
-        allow delete: if false;
+        allow delete: if isMember(workspaceId) &&
+          !existsAfter(/databases/$(database)/documents/workspaces/$(workspaceId)/vehicles/$(resource.data.vehicleId));
       }
     }
   }

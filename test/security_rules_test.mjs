@@ -1,6 +1,6 @@
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'fs';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 
 const PROJECT_ID = 'autosaldo';
 
@@ -156,6 +156,45 @@ async function runTests() {
         updatedByUid: 'outro_uid_falso',
       })
     );
+  });
+
+  // 9. Bloqueia exclusão avulsa de despesa enquanto veículo existir
+  await test('Impede excluir despesa isoladamente enquanto o veículo existir', async () => {
+    await assertFails(
+      deleteDoc(doc(vendedorDb, 'workspaces/default/expenses/exp_01'))
+    );
+  });
+
+  // 10. Bloqueia exclusão de veículo com venda ativa
+  await test('Impede excluir veículo com activeSale preenchida', async () => {
+    await assertSucceeds(
+      setDoc(doc(vendedorDb, 'workspaces/default/vehicles/car_sold'), {
+        brand: 'Fiat',
+        model: 'Argo',
+        plate: 'BRA2E19',
+        purchaseDate: '2026-10-01',
+        purchasePriceCents: 4000000,
+        activeSale: {
+          id: 'sale_1',
+          saleDate: '2026-10-10',
+          salePriceCents: 4600000,
+          payments: [],
+        },
+        createdByUid: 'uid_vendedor',
+        updatedByUid: 'uid_vendedor',
+      })
+    );
+    await assertFails(
+      deleteDoc(doc(vendedorDb, 'workspaces/default/vehicles/car_sold'))
+    );
+  });
+
+  // 11. Permite exclusão em lote atômico (WriteBatch) de veículo sem venda + suas despesas
+  await test('Permite exclusão atômica de veículo sem venda ativa junto com suas despesas', async () => {
+    const batch = writeBatch(vendedorDb);
+    batch.delete(doc(vendedorDb, 'workspaces/default/expenses/exp_01'));
+    batch.delete(doc(vendedorDb, 'workspaces/default/vehicles/car_01'));
+    await assertSucceeds(batch.commit());
   });
 
   console.log(`\nResultado das Security Rules: ${passed} passaram, ${failed} falharam.`);

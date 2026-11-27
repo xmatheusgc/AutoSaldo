@@ -56,6 +56,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
   FipePriceResult? _fipeResult;
   String? _fipeMessage;
   String? _lastAutoFipeSignature;
+  bool _isDeletedLocally = false;
 
   @override
   void initState() {
@@ -503,6 +504,125 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     );
   }
 
+  Future<void> _deleteVehicle(Vehicle vehicle, List<Expense> expenses) async {
+    if (vehicle.isSold) {
+      await showAdaptiveModalSheet<void>(
+        context: context,
+        builder: (ctx) => AdaptiveModalContainer(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Exclusão bloqueada',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textMain,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 22, color: AppTheme.textMuted),
+                    tooltip: 'Fechar',
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.warningLight,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.warningBorder),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline, size: 20, color: AppTheme.warningOrange),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Este veículo possui uma venda ativa registrada.\n\nPara excluí-lo sem afetar o histórico financeiro, cancele a venda primeiro em "Cancelar venda e retornar ao estoque".',
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          color: AppTheme.textMain,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryDark,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text(
+                  'Entendi',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
+
+    final hasExpenses = expenses.isNotEmpty;
+    final hasCancelledSales = vehicle.cancelledSales.isNotEmpty;
+    final requiresPlateConfirmation = hasExpenses || hasCancelledSales;
+    final validExpensesTotal = expenses
+        .where((e) => e.isValid)
+        .fold<int>(0, (sum, e) => sum + e.amountCents);
+
+    final messenger = ScaffoldMessenger.of(context);
+    final completed = await showAdaptiveModalSheet<bool>(
+      context: context,
+      builder: (_) => _DeleteVehicleDialog(
+        vehicle: vehicle,
+        expenses: expenses,
+        requiresPlateConfirmation: requiresPlateConfirmation,
+        validExpensesTotal: validExpensesTotal,
+        onConfirmDelete: () async {
+          if (mounted) setState(() => _isDeletedLocally = true);
+          try {
+            await widget.vehicleRepository.deleteVehicleWithExpenses(
+              workspaceId: widget.workspaceId,
+              vehicleId: vehicle.id,
+            );
+          } catch (e) {
+            if (mounted) setState(() => _isDeletedLocally = false);
+            rethrow;
+          }
+        },
+      ),
+    );
+
+    if (completed == true && mounted) {
+      Navigator.of(context).pop();
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Veículo excluído com sucesso.'),
+          backgroundColor: AppTheme.successGreen,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<Vehicle?>(
@@ -552,6 +672,12 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
 
         final vehicle = vSnapshot.data;
         if (vehicle == null) {
+          if (_isDeletedLocally) {
+            return Scaffold(
+              appBar: AppBar(title: const Text('Ficha do Veículo')),
+              body: const Center(child: CircularProgressIndicator()),
+            );
+          }
           return Scaffold(
             appBar: AppBar(title: const Text('Ficha do Veículo')),
             body: Center(
@@ -701,6 +827,8 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                             _returnConsignedVehicle(vehicle);
                           } else if (value == 'reopen_stock') {
                             _reopenConsignedVehicle(vehicle);
+                          } else if (value == 'delete_vehicle') {
+                            _deleteVehicle(vehicle, vehicleExpenses);
                           }
                         },
                         itemBuilder: (_) => [
@@ -710,7 +838,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                               children: [
                                 Icon(Icons.copy_outlined, size: 18, color: AppTheme.textMuted),
                                 SizedBox(width: 10),
-                                Text('Copiar anúncio'),
+                                Flexible(child: Text('Copiar anúncio')),
                               ],
                             ),
                           ),
@@ -720,7 +848,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                               children: [
                                 Icon(Icons.copy_all_outlined, size: 18, color: AppTheme.textMuted),
                                 SizedBox(width: 10),
-                                Text('Copiar p/ despachante'),
+                                Flexible(child: Text('Copiar p/ despachante')),
                               ],
                             ),
                           ),
@@ -731,7 +859,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                                 children: [
                                   Icon(Icons.assignment_return_outlined, size: 18, color: AppTheme.warningOrange),
                                   SizedBox(width: 10),
-                                  Text('Devolver ao proprietário'),
+                                  Flexible(child: Text('Devolver ao proprietário')),
                                 ],
                               ),
                             ),
@@ -742,10 +870,29 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                                 children: [
                                   Icon(Icons.replay_outlined, size: 18, color: AppTheme.accentBlue),
                                   SizedBox(width: 10),
-                                  Text('Retornar ao estoque'),
+                                  Flexible(child: Text('Retornar ao estoque')),
                                 ],
                               ),
                             ),
+                          const PopupMenuDivider(),
+                          const PopupMenuItem(
+                            value: 'delete_vehicle',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete_outline, size: 18, color: AppTheme.dangerRed),
+                                SizedBox(width: 10),
+                                Flexible(
+                                  child: Text(
+                                    'Excluir veículo',
+                                    style: TextStyle(
+                                      color: AppTheme.dangerRed,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -2705,6 +2852,249 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                 padding: EdgeInsets.only(left: 4),
                 child: Icon(Icons.copy, size: 14, color: AppTheme.accentBlue),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeleteVehicleDialog extends StatefulWidget {
+  final Vehicle vehicle;
+  final List<Expense> expenses;
+  final bool requiresPlateConfirmation;
+  final int validExpensesTotal;
+  final Future<void> Function() onConfirmDelete;
+
+  const _DeleteVehicleDialog({
+    required this.vehicle,
+    required this.expenses,
+    required this.requiresPlateConfirmation,
+    required this.validExpensesTotal,
+    required this.onConfirmDelete,
+  });
+
+  @override
+  State<_DeleteVehicleDialog> createState() => _DeleteVehicleDialogState();
+}
+
+class _DeleteVehicleDialogState extends State<_DeleteVehicleDialog> {
+  final _plateController = TextEditingController();
+  bool _isSubmitting = false;
+  String? _inlineError;
+  late bool _plateMatches;
+
+  @override
+  void initState() {
+    super.initState();
+    _plateMatches = !widget.requiresPlateConfirmation;
+  }
+
+  @override
+  void dispose() {
+    _plateController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final vehicle = widget.vehicle;
+    final hasExpenses = widget.expenses.isNotEmpty;
+    final hasCancelledSales = vehicle.cancelledSales.isNotEmpty;
+
+    return PopScope(
+      canPop: !_isSubmitting,
+      child: AdaptiveModalContainer(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.requiresPlateConfirmation
+                            ? 'Excluir Veículo e Histórico'
+                            : 'Excluir Veículo',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.textMain,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${vehicle.title} • ${vehicle.formattedPlate}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textMuted,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 22, color: AppTheme.textMuted),
+                  tooltip: 'Fechar',
+                  onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(false),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              widget.requiresPlateConfirmation
+                  ? 'Esta ação removerá permanentemente este veículo e todos os dados vinculados abaixo:'
+                  : 'Deseja excluir este cadastro permanentemente? A placa ficará livre para um novo cadastro.',
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppTheme.textMain,
+                height: 1.4,
+              ),
+            ),
+            if (widget.requiresPlateConfirmation) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.warningLight,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.warningBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (hasExpenses)
+                      Text(
+                        '• ${widget.expenses.length} ${widget.expenses.length == 1 ? "despesa registrada" : "despesas registradas"}${widget.validExpensesTotal > 0 ? " (${Formatters.formatCurrency(widget.validExpensesTotal)} em gastos)" : ""}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF92400E),
+                        ),
+                      ),
+                    if (hasCancelledSales)
+                      Text(
+                        '• ${vehicle.cancelledSales.length} ${vehicle.cancelledSales.length == 1 ? "venda cancelada" : "vendas canceladas"} no histórico',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF92400E),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Digite a placa ${vehicle.formattedPlate} para confirmar *',
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textMain,
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _plateController,
+                textCapitalization: TextCapitalization.characters,
+                decoration: InputDecoration(
+                  hintText: vehicle.formattedPlate,
+                ),
+                onChanged: (val) {
+                  final matches =
+                      Formatters.normalizePlate(val) == vehicle.plate;
+                  if (matches != _plateMatches) {
+                    setState(() {
+                      _plateMatches = matches;
+                    });
+                  }
+                },
+              ),
+            ],
+            if (_inlineError != null) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.dangerLight,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.dangerBorder),
+                ),
+                child: Text(
+                  _inlineError!,
+                  style: const TextStyle(
+                    color: AppTheme.dangerRed,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: (_isSubmitting || !_plateMatches)
+                  ? null
+                  : () async {
+                      setState(() {
+                        _isSubmitting = true;
+                        _inlineError = null;
+                      });
+                      try {
+                        await widget.onConfirmDelete();
+                        if (context.mounted) Navigator.of(context).pop(true);
+                      } catch (e) {
+                        if (mounted) {
+                          setState(() {
+                            _isSubmitting = false;
+                            _inlineError = ErrorMessages.friendly(e);
+                          });
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.dangerRed,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: AppTheme.dangerRed.withAlpha(80),
+                disabledForegroundColor: Colors.white.withAlpha(180),
+                elevation: 0,
+                minimumSize: const Size.fromHeight(50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              child: _isSubmitting
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      widget.requiresPlateConfirmation
+                          ? 'Excluir permanentemente'
+                          : 'Excluir',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(false),
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.textMuted,
+                minimumSize: const Size.fromHeight(44),
+              ),
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+              ),
+            ),
           ],
         ),
       ),
